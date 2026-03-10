@@ -1,0 +1,9 @@
+[project]
+name = "notecli"
+version = "0.1.0"
+description = "Jogue NoteQuest de forma interativa como um adventure game"
+readme = "README.md"
+requires-python = ">=3.14"
+dependencies = [
+    "agno>=2.5.8",
+]

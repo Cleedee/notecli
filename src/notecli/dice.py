@@ -11,7 +11,7 @@ class Roller:
         """
         # Regex para capturar: [quantidade]d[lados][+ou-][bônus]
         match = re.match(r"(\d+)d(\d+)(?:([+-])(\d+))?", notation.lower())
-        it not match:
+        if not match:
             raise ValueError(f"Formato de dado inválido: {notation}")
 
         quantity = int(match.group(1))

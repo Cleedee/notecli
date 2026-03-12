@@ -1,7 +1,9 @@
 from dataclasses import dataclass
 from typing import Callable
 
-from notecli.entities import factory_magic
+from notecli.entities.magic import factory_magic
+from notecli.dice import Roller
+from notecli.tables import BASIC_MAGICS
 
 @dataclass
 class Ancestry:
@@ -20,10 +22,14 @@ def apply_generic(pc):
 
 def apply_vagaloide(pc):
     magic = factory_magic('Light')
-    print(magic)
     magic['uses'] = 3
     pc.magics.append(magic)
 
+def apply_elf(pc):
+    magic = BASIC_MAGICS.get(Roller.d6())
+    magic['uses'] = 1
+    pc.magics.append(magic)
 
-MENDIGO = Ancestry("Mendigo", 10, apply_generic)
+SLIMEMAN = Ancestry("Homem-Gosma", 10, apply_generic)
 VAGALOIDE = Ancestry("Vagalóide", 16, apply_vagaloide)
+ELF = Ancestry("Elfo", 16, apply_elf)

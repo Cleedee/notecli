@@ -1,7 +1,7 @@
 import unittest
 
 from notecli.entities import PlayerCharacter
-from notecli.entities import factory_magic
+from notecli.entities.magic import factory_magic
 from notecli import tables
 
 class TestUseMagic(unittest.TestCase):
@@ -41,6 +41,7 @@ class TestUseMagic(unittest.TestCase):
         self.pc.consume_torch()
         self.assertEqual(self.pc.torches, 9)
         self.assertEqual(self.pc.light_on, True)
+
 
 if __name__ == "__main__":
     unittest.main()

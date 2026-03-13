@@ -1,9 +1,8 @@
 from dataclasses import dataclass
 from typing import Callable
 
-from notecli.entities.magic import factory_magic
+from notecli.entities.magic import factory_magic, BASIC_MAGICS
 from notecli.dice import Roller
-from notecli.tables import BASIC_MAGICS
 
 @dataclass
 class Ancestry:

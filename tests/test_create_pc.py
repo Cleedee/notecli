@@ -17,7 +17,7 @@ class TestCreatePC(unittest.TestCase):
         ancestry = tables.ANCESTRIES[2]
         ancestry.apply(self.pc)
         self.assertEqual(self.pc.health_points, 10)
-        self.assertEqual(self.pc.ancestry, "Mendigo")
+        self.assertEqual(self.pc.ancestry, "Homem-Gosma")
 
     def test_ancestry_vagaloide_magia_inicial(self):
         ancestry = tables.ANCESTRIES[3]

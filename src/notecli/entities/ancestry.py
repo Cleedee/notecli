@@ -25,7 +25,7 @@ def apply_vagaloide(pc):
     pc.magics.append(magic)
 
 def apply_elf(pc):
-    magic = BASIC_MAGICS.get(Roller.d6())
+    magic : dict = BASIC_MAGICS.get(Roller.d6(), {})
     magic['uses'] = 1
     pc.magics.append(magic)
 

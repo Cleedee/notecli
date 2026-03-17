@@ -1,10 +1,10 @@
-from notecli.entities import ancestry
+from notecli.entities.ancestry import SLIMEMAN, VAGALOIDE, ELF
 from notecli.entities.magic import factory_magic
 
 ANCESTRIES = {
-    2: ancestry.SLIMEMAN,
-    3: ancestry.VAGALOIDE,
-    6: ancestry.ELF
+    2: SLIMEMAN,
+    3: VAGALOIDE,
+    6: ELF
 }
 
 

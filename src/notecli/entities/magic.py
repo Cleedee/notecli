@@ -11,7 +11,7 @@ def factory_magic(name) -> dict:
         return {'name': 'Heal', 'applier': uses_heal}
     return {}
 
-BASIC_MAGICS = {
+BASIC_MAGICS : dict = {
     1: factory_magic('Heal'),
     2: factory_magic('Light'),
     3: factory_magic('Light'),

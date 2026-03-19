@@ -2,7 +2,10 @@ import unittest
 from unittest.mock import patch
 
 from notecli.entities import PlayerCharacter
+from notecli.dice import Roller
 from notecli import tables
+
+Roller.d6 = Mock()
 
 class TestElf(unittest.TestCase):
 

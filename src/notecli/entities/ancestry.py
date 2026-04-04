@@ -1,6 +1,7 @@
 from dataclasses import dataclass
 from typing import Callable
 
+from notecli.entities.player import PlayerCharacter
 from notecli.entities.magic import factory_magic, BASIC_MAGICS
 from notecli.dice import Roller
 
@@ -11,24 +12,14 @@ class Ancestry:
     applier: Callable
     hp_current: int = 0
 
-    def apply(self, pc):
+    def apply(self, pc: PlayerCharacter):
         pc.health_points = self.health_points
         pc.hp_current = self.health_points
         pc.ancestry = self.name
         self.applier(pc)
 
-
-
-def apply_generic(pc):
-    pass
-
-def apply_vagaloide(pc):
-    magic = factory_magic('Light')
-    magic['uses'] = 3
-    pc.magics.append(magic)
-
-def apply_faerie(pc):
-    for _ in range(5):
+def _randomize_magics(pc: PlayerCharacter, quantity):
+    for _ in range(quantity):
         magic = BASIC_MAGICS.get(Roller.d6(), {})
         print(magic['name'])
         query_magic = pc.has_magic(magic['name'])
@@ -37,12 +28,31 @@ def apply_faerie(pc):
         else:
             pc.magics.append(magic)
 
-def apply_elf(pc):
+
+
+def apply_generic(pc: PlayerCharacter):
+    pass
+
+def apply_vagaloide(pc: PlayerCharacter):
+    magic = factory_magic('Light')
+    magic['uses'] = 3
+    pc.magics.append(magic)
+
+def apply_faerie(pc: PlayerCharacter):
+    _randomize_magics(pc, 5)
+
+def apply_elf(pc: PlayerCharacter):
     magic : dict = BASIC_MAGICS.get(Roller.d6(), {})
     magic['uses'] = 1
     pc.magics.append(magic)
 
+def apply_gnome(pc: PlayerCharacter):
+    _randomize_magics(pc, 3)
+
 SLIMEMAN = Ancestry("Homem-Gosma", 10, apply_generic)
 VAGALOIDE = Ancestry("Vagalóide", 16, apply_vagaloide)
 FAERIE = Ancestry("Fada", 8, apply_faerie)
+GNOME = Ancestry("Gnomo", 14, apply_gnome)
 ELF = Ancestry("Elfo", 16, apply_elf)
+HUMAN = Ancestry("Humano", 20, apply_generic)
+DWARF = Ancestry("Anão", 18, apply_generic)

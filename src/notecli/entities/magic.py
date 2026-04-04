@@ -9,6 +9,9 @@ def uses_heal(pc):
     if pc.hp_current > pc.health_points:
         pc.hp_current = pc.health_points
 
+def uses_fireball(pc):
+    ...
+
 def factory_magic(name) -> dict:
     if name == 'Light':
         return {'name': 'Light', 'applier': uses_light, 'uses': 1}
@@ -16,6 +19,8 @@ def factory_magic(name) -> dict:
         return {'name': 'Heal', 'applier': uses_heal, 'uses': 1}
     if name == 'Freeze':
         return {'name': 'Freeze', 'applier': uses_freeze, 'uses': 1}
+    if name == 'Fireball':
+        return {'name': 'Fireball', 'applier': uses_fireball, 'uses': 1}
     return {}
 
 BASIC_MAGICS : dict = {
@@ -24,5 +29,5 @@ BASIC_MAGICS : dict = {
     3: factory_magic('Light'),
     4: factory_magic('Freeze'),
     5: factory_magic('Light'),
-    6: factory_magic('Light')
+    6: factory_magic('Fireball')
 }

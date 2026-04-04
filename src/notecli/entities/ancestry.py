@@ -49,6 +49,11 @@ def apply_elf(pc: PlayerCharacter):
 def apply_gnome(pc: PlayerCharacter):
     _randomize_magics(pc, 3)
 
+def apply_halfdragon(pc: PlayerCharacter):
+    magic = factory_magic('Fireball')
+    magic['uses'] = 3
+    pc.magics.append(magic)
+
 SLIMEMAN = Ancestry("Homem-Gosma", 10, apply_generic)
 VAGALOIDE = Ancestry("Vagalóide", 16, apply_vagaloide)
 FAERIE = Ancestry("Fada", 8, apply_faerie)
@@ -56,3 +61,7 @@ GNOME = Ancestry("Gnomo", 14, apply_gnome)
 ELF = Ancestry("Elfo", 16, apply_elf)
 HUMAN = Ancestry("Humano", 20, apply_generic)
 DWARF = Ancestry("Anão", 18, apply_generic)
+HALFLING = Ancestry("Pequenino", 14, apply_generic)
+CAT_PEOPLE = Ancestry("Povo Gato", 19, apply_generic)
+RINOCEROID = Ancestry("Rinoceróide", 24, apply_generic)
+HALF_DRAGON = Ancestry("Meio-Dragão", 30, apply_halfdragon)

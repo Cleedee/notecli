@@ -116,7 +116,9 @@ class TestExploreDisplayFormatting(unittest.TestCase):
         import sys
 
         dungeon_type = DungeonType(
-            name="Templo", entrance_description="Um templo antigo."
+            article="O",
+            name="Templo",
+            entrance_description="Um templo antigo.",
         )
         dungeon = Dungeon(type=dungeon_type, name="O Templo da Dor")
 

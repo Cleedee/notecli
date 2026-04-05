@@ -9,7 +9,7 @@ from notecli.entities.ancestry import (
     HALFLING,
     CAT_PEOPLE,
     RINOCEROID,
-    HALF_DRAGON
+    HALF_DRAGON,
 )
 from notecli.entities.dungeon import DungeonType
 
@@ -26,7 +26,7 @@ ANCESTRIES = {
     9: HALFLING,
     10: CAT_PEOPLE,
     11: RINOCEROID,
-    12: HALF_DRAGON
+    12: HALF_DRAGON,
 }
 
 OCCUPATIONS = {
@@ -40,11 +40,12 @@ OCCUPATIONS = {
     9: occupation.LOCKSMITH,
     10: occupation.LUMBERJACK,
     11: occupation.LUMBERJACK,
-    12: occupation.GLADIATOR
+    12: occupation.GLADIATOR,
 }
 
 DUNGEON_TYPES = {
     1: DungeonType(
+        article="O",
         name="Palácio",
         entrance_description=(
             "Portões de ferro retorcido marcam a entrada de uma residência real "
@@ -53,6 +54,7 @@ DUNGEON_TYPES = {
         ),
     ),
     2: DungeonType(
+        article="A",
         name="Cripta",
         entrance_description=(
             "Uma escadaria em espiral desce para a escuridão, com paredes cobertas "
@@ -61,6 +63,7 @@ DUNGEON_TYPES = {
         ),
     ),
     3: DungeonType(
+        article="A",
         name="Tumba",
         entrance_description=(
             "Um arco de pedra selado com runas desgastadas pelo tempo bloqueia "
@@ -69,6 +72,7 @@ DUNGEON_TYPES = {
         ),
     ),
     4: DungeonType(
+        article="O",
         name="Santuário",
         entrance_description=(
             "Colunas negras sustentam um póreo ornamentado com símbolos de uma fé "
@@ -77,6 +81,7 @@ DUNGEON_TYPES = {
         ),
     ),
     5: DungeonType(
+        article="O",
         name="Templo",
         entrance_description=(
             "Colunas antigas sustentam um telhado parcialmente desabado, revelando "
@@ -85,6 +90,7 @@ DUNGEON_TYPES = {
         ),
     ),
     6: DungeonType(
+        article="O",
         name="Calabouço",
         entrance_description=(
             "Uma grade enferrujada foi arrombada há muito tempo, revelando um "
@@ -94,16 +100,13 @@ DUNGEON_TYPES = {
     ),
 }
 
-DUNGEON_NAME_TABLES = {
-    "articles": ["O", "A", "As", "Os"],
-    "substantives": [
-        "Palácio", "Cripta", "Tumba", "Santuário", "Templo", "Calabouço",
-        "Catacumba", "Fortaleza", "Masmorra", "Torre",
-    ],
-    "prepositions": ["de", "da", "do", "das", "dos"],
-    "modifiers": [
-        "Dor", "Névoa", "Trevas", "Sangue", "Sombras",
-        "Ossos", "Cinzas", "Medo", "Silêncio", "Esquecimento",
-        "Nebulosa", "Profunda", "Antiga", "Amaldiçoada", "Perdida",
-    ],
-}
+second_part = [
+    "do Horror",
+    "da Maldição",
+    "da Dor",
+    "do Herói",
+    "da Promessa",
+    "da Escuridão",
+]
+
+third_part = ["Secreta", "Nebulosa", "Eterno", "Gélido", "Flamejante", "Sangrento"]

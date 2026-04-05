@@ -16,8 +16,11 @@ class TestDungeonType(unittest.TestCase):
     """Tests for the DungeonType entity."""
 
     def test_dungeon_type_creation(self):
-        dt = DungeonType(name="Templo", entrance_description="Um templo antigo.")
+        dt = DungeonType(
+            article="O", name="Templo", entrance_description="Um templo antigo."
+        )
         self.assertEqual(dt.name, "Templo")
+        self.assertEqual(dt.article, "O")
         self.assertEqual(dt.entrance_description, "Um templo antigo.")
 
     def test_dungeon_type_in_tables(self):
@@ -36,7 +39,9 @@ class TestDungeon(unittest.TestCase):
 
     def setUp(self):
         self.dungeon_type = DungeonType(
-            name="Cripta", entrance_description="Uma cripta escura."
+            article="A",
+            name="Cripta",
+            entrance_description="Uma cripta escura.",
         )
 
     def test_dungeon_creation(self):
@@ -68,7 +73,7 @@ class TestExplorationSession(unittest.TestCase):
 
     def setUp(self):
         dungeon_type = DungeonType(
-            name="Templo", entrance_description="Um templo."
+            article="O", name="Templo", entrance_description="Um templo."
         )
         self.dungeon = Dungeon(
             type=dungeon_type,

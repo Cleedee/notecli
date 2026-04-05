@@ -9,6 +9,8 @@ from notecli.entities.dungeon_name import generate_dungeon_name
 @dataclass
 class DungeonType:
     """Represents a type of dungeon with entrance description."""
+
+    article: str
     name: str
     entrance_description: str
 
@@ -16,6 +18,7 @@ class DungeonType:
 @dataclass
 class Dungeon:
     """Represents a generated dungeon instance."""
+
     type: DungeonType
     name: str
     entrance_shown: bool = field(default=False)
@@ -26,6 +29,7 @@ class Dungeon:
 @dataclass
 class ExplorationSession:
     """Represents an active exploration session linking a dungeon to a character."""
+
     dungeon: Dungeon
     character_index: int
     started_at: str
@@ -52,6 +56,7 @@ class ExplorationSession:
         dungeon_data = data["dungeon"]
         # Look up the DungeonType by name
         from notecli import tables
+
         dungeon_type = None
         for dt in tables.DUNGEON_TYPES.values():
             if dt.name == dungeon_data["type_name"]:
@@ -93,7 +98,7 @@ def generate_dungeon(roll: int) -> Dungeon:
         raise ValueError(f"Invalid dungeon roll: {roll}. Must be 1-6.")
 
     dungeon_type = tables.DUNGEON_TYPES[roll]
-    name = generate_dungeon_name()
+    name = generate_dungeon_name(dungeon_type)
 
     return Dungeon(
         type=dungeon_type,

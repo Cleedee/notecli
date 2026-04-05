@@ -230,6 +230,18 @@ def explore(resume: bool = False) -> None:
         # Character was just created, it should be the last one
         char_index = len(characters)
 
+    # Consume 1 torch on exploration start
+    pc.consume_torch()
+
+    # Persist the updated character
+    from notecli.cli.storage import save_characters
+    characters = load_characters()
+    for i, ch in enumerate(characters):
+        if ch.get("name") == pc.name and ch.get("ancestry") == pc.ancestry:
+            characters[i] = pc.to_dict()
+            break
+    save_characters(characters)
+
     start_new_session(dungeon, char_index)
 
     # Show status

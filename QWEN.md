@@ -161,6 +161,8 @@ Per the constitution's Test-Driven principle, new features MUST have tests befor
 - Local JSON file for character persistence (`~/.notecli/characters.json`) (001-character-menu)
 - Python 3.14+ + Standard library (input, sys, random), `notecli.entities` (PlayerCharacter, Ancestry), `notecli.dice.Roller`, `notecli.tables`, `notecli.cli.storage` (reutilizado) (002-dungeon-explore)
 - `~/.notecli/characters.json` (existente) + `~/.notecli/exploration.json` (novo, para sessão de exploração) (002-dungeon-explore)
+- Python 3.14+ + `notecli.entities.player.PlayerCharacter` (já possui `consume_torch()`, `torches`, `light_on`), `notecli.cli.explore_menu` (ponto de integração) (003-torch-consumption)
+- `~/.notecli/exploration.json` (já persiste `light_on` e `torches` indiretamente via `character_index`) (003-torch-consumption)
 
 ## Recent Changes
 - 001-character-menu: Added Python 3.14+ + Existing `notecli.entities` (PlayerCharacter, Ancestry, Occupation), `notecli.dice.Roller`, `notecli.tables` (ANCESTRIES + OCCUPATIONS fully mapped 2-12), standard library (`json`, `pathlib`, `sys`)

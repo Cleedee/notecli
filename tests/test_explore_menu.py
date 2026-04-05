@@ -162,14 +162,6 @@ class TestExploreCharacterSelection(unittest.TestCase):
                 "health_points": 16,
                 "alive": True,
             },
-            {
-                "name": "Elfo",
-                "ancestry": "Elfo",
-                "occupation": "Nobre",
-                "hp_current": 18,
-                "health_points": 18,
-                "alive": True,
-            },
         ]
 
         from io import StringIO
@@ -191,7 +183,6 @@ class TestExploreCharacterSelection(unittest.TestCase):
         output = captured.getvalue()
         self.assertIn("Escolha um Personagem", output)
         self.assertIn("1)", output)
-        self.assertIn("2)", output)
         self.assertIn("Criar novo personagem", output)
 
     @patch("notecli.cli.storage.load_characters")

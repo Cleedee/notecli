@@ -110,3 +110,36 @@ second_part = [
 ]
 
 third_part = ["Secreta", "Nebulosa", "Eterno", "Gélido", "Flamejante", "Sangrento"]
+
+# Transition tables for segment generation.
+# Each table has exactly 6 entries. Selected via d6 roll (index = roll - 1).
+
+# From staircase: always generates corridors with 1-3 doors
+STAIRCASE_TRANSITIONS = [
+    {"type": "corredor", "doors": 1},
+    {"type": "corredor", "doors": 2},
+    {"type": "corredor", "doors": 3},
+    {"type": "corredor", "doors": 1},
+    {"type": "corredor", "doors": 2},
+    {"type": "corredor", "doors": 3},
+]
+
+# From corridor: mostly rooms (1-2 doors), one result leads to staircase
+CORRIDOR_TRANSITIONS = [
+    {"type": "sala", "doors": 1},
+    {"type": "sala", "doors": 2},
+    {"type": "sala", "doors": 1},
+    {"type": "sala", "doors": 2},
+    {"type": "sala", "doors": 1},
+    {"type": "escadaria", "doors": 1},
+]
+
+# From room: mostly dead-end rooms (0 doors), one result leads to staircase
+ROOM_TRANSITIONS = [
+    {"type": "sala", "doors": 0},
+    {"type": "sala", "doors": 0},
+    {"type": "sala", "doors": 0},
+    {"type": "sala", "doors": 0},
+    {"type": "sala", "doors": 0},
+    {"type": "escadaria", "doors": 1},
+]

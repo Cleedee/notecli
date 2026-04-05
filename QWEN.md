@@ -163,6 +163,8 @@ Per the constitution's Test-Driven principle, new features MUST have tests befor
 - `~/.notecli/characters.json` (existente) + `~/.notecli/exploration.json` (novo, para sessão de exploração) (002-dungeon-explore)
 - Python 3.14+ + `notecli.entities.player.PlayerCharacter` (já possui `consume_torch()`, `torches`, `light_on`), `notecli.cli.explore_menu` (ponto de integração) (003-torch-consumption)
 - `~/.notecli/exploration.json` (já persiste `light_on` e `torches` indiretamente via `character_index`) (003-torch-consumption)
+- Python 3.14+ + Standard library (`random`, `enum`), `notecli.entities.dungeon` (Dungeon, generate_dungeon reutilizados), `notecli.dice.Roller`, `notecli.cli.explore_menu`, `notecli.cli.storage` (004-dungeon-segments)
+- `~/.notecli/exploration.json` (estendido para persistir grafo de segmentos, nível atual, pilha de visitados) (004-dungeon-segments)
 
 ## Recent Changes
 - 001-character-menu: Added Python 3.14+ + Existing `notecli.entities` (PlayerCharacter, Ancestry, Occupation), `notecli.dice.Roller`, `notecli.tables` (ANCESTRIES + OCCUPATIONS fully mapped 2-12), standard library (`json`, `pathlib`, `sys`)

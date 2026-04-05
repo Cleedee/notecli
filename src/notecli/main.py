@@ -1,6 +1,7 @@
 import sys
 
 from notecli.cli.character_menu import show_menu
+from notecli.cli.explore_menu import explore
 
 
 def main():
@@ -11,7 +12,8 @@ def main():
     if len(args) > 0 and args[0] == "character":
         show_menu()
     elif "explore" in args:
-        print("Você entra na masmorra e saca sua espada...")
+        resume = "--resume" in args
+        explore(resume=resume)
     else:
         print("Use 'notecli character' para gerenciar personagens.")
         print("Use 'notecli explore' para começar sua jornada.")

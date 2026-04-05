@@ -159,6 +159,8 @@ Per the constitution's Test-Driven principle, new features MUST have tests befor
 ## Active Technologies
 - Python 3.14+ + Existing `notecli.entities` (PlayerCharacter, Ancestry, Occupation), `notecli.dice.Roller`, `notecli.tables` (ANCESTRIES + OCCUPATIONS fully mapped 2-12), standard library (`json`, `pathlib`, `sys`) (001-character-menu)
 - Local JSON file for character persistence (`~/.notecli/characters.json`) (001-character-menu)
+- Python 3.14+ + Standard library (input, sys, random), `notecli.entities` (PlayerCharacter, Ancestry), `notecli.dice.Roller`, `notecli.tables`, `notecli.cli.storage` (reutilizado) (002-dungeon-explore)
+- `~/.notecli/characters.json` (existente) + `~/.notecli/exploration.json` (novo, para sessão de exploração) (002-dungeon-explore)
 
 ## Recent Changes
 - 001-character-menu: Added Python 3.14+ + Existing `notecli.entities` (PlayerCharacter, Ancestry, Occupation), `notecli.dice.Roller`, `notecli.tables` (ANCESTRIES + OCCUPATIONS fully mapped 2-12), standard library (`json`, `pathlib`, `sys`)

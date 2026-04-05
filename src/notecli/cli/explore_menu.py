@@ -213,6 +213,7 @@ def exploration_loop(pc, dungeon, graph: DungeonGraph) -> None:
                 actions.append(f"destrancar {door.index + 1}")
         actions.append("voltar")
         actions.append("sair")
+        actions.append("salvar_e_sair")
         actions.append("ajuda")
 
         action_prompt = f"Ações: {', '.join(actions)}\n> "
@@ -225,16 +226,21 @@ def exploration_loop(pc, dungeon, graph: DungeonGraph) -> None:
 
         if cmd == "ajuda":
             print("\nComandos disponíveis:")
-            print("  abrir <N>       — Abre a porta N (rolagem d6)")
-            print("  destrancar <N>  — Destranc porta N (consome 1 tocha)")
-            print("  voltar          — Retorna ao segmento anterior")
-            print("  sair            — Tenta sair da masmorra")
-            print("  status          — Mostra status do personagem")
-            print("  ajuda           — Mostra esta ajuda")
-            print("  q               — Sai do jogo")
+            print("  abrir <N>        — Abre a porta N (rolagem d6)")
+            print("  destrancar <N>   — Destranc porta N (consome 1 tocha)")
+            print("  voltar           — Retorna ao segmento anterior")
+            print("  sair             — Sai da masmorra (encerra exploração)")
+            print("  salvar_e_sair    — Salva progresso e sai (pode retomar)")
+            print("  status           — Mostra status do personagem")
+            print("  ajuda            — Mostra esta ajuda")
+            print("  q                — Sai do jogo")
             continue
 
-        if cmd in ("q", "sair"):
+        if cmd in ("q",):
+            _handle_save_quit(pc, graph)
+            return
+
+        if cmd in ("sair",):
             _handle_exit(pc, graph)
             return
 
@@ -386,6 +392,16 @@ def _handle_exit(pc, graph: DungeonGraph) -> None:
     print("Continuando a exploração...")
 
 
+def _handle_save_quit(pc, graph: DungeonGraph) -> None:
+    """Save current progress and quit, keeping session active for resume."""
+    _save_session(graph)
+    _save_character(pc)
+    print("\n💾 Progresso salvo. Personagem permanece na masmorra.")
+    print(f"   Execute 'notecli explore --resume' para continuar de onde parou.")
+    print(f"   Segmento atual: {graph.current_segment_id}")
+    print(f"   Tochas: {pc.torches} | HP: {pc.hp_current}/{pc.health_points}")
+
+
 def _save_session(graph: DungeonGraph) -> None:
     """Persist current session state."""
     session_data = load_exploration()
@@ -445,8 +461,20 @@ def explore(resume: bool = False) -> None:
                         return
 
                     if choice == "s":
+                        from notecli.entities.dungeon import Dungeon
+                        dungeon_data = session_data.get("dungeon", {})
+                        dungeon_type = None
+                        from notecli import tables
+                        for dt in tables.DUNGEON_TYPES.values():
+                            if dt.name == dungeon_data.get("type_name"):
+                                dungeon_type = dt
+                                break
+                        dungeon = Dungeon(
+                            type=dungeon_type,
+                            name=dungeon_data.get("name", "Masmorra desconhecida"),
+                        )
                         print(f"\n🗡️ {pc.ancestry} {pc.occupation} continua explorando...")
-                        exploration_loop(pc, None, graph)
+                        exploration_loop(pc, dungeon, graph)
                         return
                 else:
                     clear_exploration()
@@ -456,6 +484,52 @@ def explore(resume: bool = False) -> None:
                 print("Sessão corrompida. Iniciando nova exploração...")
         else:
             clear_exploration()
+
+    # If not resuming, check for active session and prompt
+    if not resume:
+        session_data = load_exploration()
+        if session_data and session_data.get("active"):
+            try:
+                choice = _prompt("\n🔄 Sessão ativa encontrada. Retomar? (r/n) > ").strip().lower()
+            except (KeyboardInterrupt, EOFError):
+                print()
+                return
+
+            if choice == "r":
+                graph = None
+                if "segment_graph" in session_data:
+                    graph = DungeonGraph.from_dict(session_data["segment_graph"])
+
+                if graph and graph.current_segment():
+                    from notecli.entities.player import PlayerCharacter
+                    from notecli.entities.dungeon import Dungeon
+                    characters = load_characters()
+                    if 0 < session_data["character_index"] <= len(characters):
+                        pc = PlayerCharacter.from_dict(characters[session_data["character_index"] - 1])
+                        # Reconstruct dungeon from session data
+                        dungeon_data = session_data.get("dungeon", {})
+                        dungeon_type = None
+                        from notecli import tables
+                        for dt in tables.DUNGEON_TYPES.values():
+                            if dt.name == dungeon_data.get("type_name"):
+                                dungeon_type = dt
+                                break
+                        dungeon = Dungeon(
+                            type=dungeon_type,
+                            name=dungeon_data.get("name", "Masmorra desconhecida"),
+                        )
+                        print(f"\n🗡️ {pc.ancestry} {pc.occupation} continua explorando...")
+                        exploration_loop(pc, dungeon, graph)
+                        return
+
+                clear_exploration()
+                print("Erro ao retomar sessão. Iniciando nova exploração...")
+            elif choice == "n":
+                clear_exploration()
+                print("Iniciando nova exploração...")
+            else:
+                clear_exploration()
+                print("Opção inválida. Iniciando nova exploração...")
 
     # Generate new dungeon
     roll = Roller.d6()

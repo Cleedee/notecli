@@ -169,6 +169,8 @@ Per the constitution's Test-Driven principle, new features MUST have tests befor
 - `~/.notecli/exploration.json` (estendido para persistir estado de portas) (005-dungeon-generation-doors)
 - Python 3.14+ + `notecli.cli.storage` (load_exploration), `notecli.entities.segment`, `notecli.entities.door` (006-dungeon-map-display)
 - `~/.notecli/exploration.json` (já persiste grafo de segmentos) (006-dungeon-map-display)
+- Python 3.14+ + `notecli.cli.explore_menu` (modificar fluxo), `notecli.cli.storage` (load/save/clear exploration), `notecli.entities.dungeon` (DungeonGraph) (007-save-quit-dungeon)
+- `~/.notecli/exploration.json` (já persiste grafo; `active` controla retomada) (007-save-quit-dungeon)
 
 ## Recent Changes
 - 001-character-menu: Added Python 3.14+ + Existing `notecli.entities` (PlayerCharacter, Ancestry, Occupation), `notecli.dice.Roller`, `notecli.tables` (ANCESTRIES + OCCUPATIONS fully mapped 2-12), standard library (`json`, `pathlib`, `sys`)

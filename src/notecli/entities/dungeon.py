@@ -163,7 +163,7 @@ def trigger_trap(dungeon_type_name: str) -> str:
 
 
 def generate_initial_segment(graph: DungeonGraph) -> Segment:
-    """Generate the initial staircase segment (level 1, 1 door).
+    """Generate the initial staircase segment (level 1, 1 door with target -1).
 
     Args:
         graph: The DungeonGraph to add the segment to.
@@ -171,11 +171,10 @@ def generate_initial_segment(graph: DungeonGraph) -> Segment:
     Returns:
         The newly created initial segment.
     """
-    # Target ID will be set later during full generation
     segment = graph.create_segment(
         seg_type=SegmentType.ESCADARIA,
         level=1,
-        door_target_ids=[-1],  # Placeholder, set during generation
+        door_target_ids=[-1],  # Target filled during full generation
     )
     graph.set_current(segment.id)
     return segment
@@ -184,8 +183,9 @@ def generate_initial_segment(graph: DungeonGraph) -> Segment:
 def generate_full_dungeon(graph: DungeonGraph, dungeon_type_name: str) -> None:
     """Generate the entire dungeon before exploration begins.
 
-    Uses BFS expansion from the initial staircase until the Final Room
-    is placed (level 3 or leaf node).
+    Each door from every segment leads to a newly generated segment.
+    All doors are connected. Final Room is placed when level 3 is reached
+    or when all doors are connected and the last segment has no further exits.
 
     Args:
         graph: The DungeonGraph to populate.
@@ -193,99 +193,90 @@ def generate_full_dungeon(graph: DungeonGraph, dungeon_type_name: str) -> None:
     """
     from notecli import tables
 
-    # Create initial staircase
-    initial = generate_initial_segment(graph)
+    transition_map = {
+        SegmentType.ESCADARIA: tables.STAIRCASE_TRANSITIONS,
+        SegmentType.CORREDOR: tables.CORRIDOR_TRANSITIONS,
+        SegmentType.SALA: tables.ROOM_TRANSITIONS,
+    }
+    type_map = {
+        "escadaria": SegmentType.ESCADARIA,
+        "corredor": SegmentType.CORREDOR,
+        "sala": SegmentType.SALA,
+    }
 
-    # BFS queue: (segment_id, is_staircase_source)
-    # We need to track which segments need door targets assigned
-    queue: list[int] = [initial.id]
-    processed: set[int] = set()
+    # Create initial staircase with 1 door (target = -1, to be filled)
+    initial = graph.create_segment(SegmentType.ESCADARIA, 1, [-1])
+    graph.set_current(initial.id)
+
     final_room_id: Optional[int] = None
 
-    while queue and final_room_id is None:
-        seg_id = queue.pop(0)
-        if seg_id in processed:
-            continue
-        processed.add(seg_id)
+    # Iterate until all doors have targets
+    max_iterations = 200  # safety limit
+    iteration = 0
+    while iteration < max_iterations:
+        iteration += 1
 
-        seg = graph.segments[seg_id]
-        transition_map = {
-            SegmentType.ESCADARIA: tables.STAIRCASE_TRANSITIONS,
-            SegmentType.CORREDOR: tables.CORRIDOR_TRANSITIONS,
-            SegmentType.SALA: tables.ROOM_TRANSITIONS,
-        }
-        transition_table = transition_map.get(seg.type, tables.ROOM_TRANSITIONS)
-
-        new_door_targets: list[int] = []
-
-        for i in range(seg.doors_count):
-            # Roll transition table
-            roll = random.randint(1, 6)
-            choice = transition_table[roll - 1]
-
-            # Determine level
-            new_level = seg.level
-            if choice["type"] == "escadaria":
-                new_level = seg.level + 1
-
-            # Determine segment type
-            type_map = {
-                "escadaria": SegmentType.ESCADARIA,
-                "corredor": SegmentType.CORREDOR,
-                "sala": SegmentType.SALA,
-            }
-            new_type = type_map.get(choice["type"], SegmentType.SALA)
-
-            # Check for Final Room conditions
-            is_final = False
-            if new_level >= 3 and new_type == SegmentType.ESCADARIA:
-                # Entering level 3 → Final Room (no doors, boss room)
-                new_type = SegmentType.SALA_FINAL
-                is_final = True
-
-            # Final Room never has exit doors — the boss is here
-            final_doors_count = 0 if is_final else choice.get("doors", 0)
-
-            # Create target segment (or reuse if already exists at this level+type)
-            new_seg_id = graph._allocate_id()
-            new_segment = Segment(
-                id=new_seg_id,
-                type=new_type,
-                level=new_level,
-                is_final_room=is_final,
-            )
-            create_doors_for_segment(new_segment, [
-                -1 for _ in range(final_doors_count)
-            ])
-            graph.segments[new_seg_id] = new_segment
-            if new_level > graph.max_level:
-                graph.max_level = new_level
-
-            new_door_targets.append(new_seg_id)
-
-            if is_final:
-                final_room_id = new_seg_id
+        # Find first unconnected door
+        unconnected = None
+        for seg in sorted(graph.segments.values(), key=lambda s: s.id):
+            for door in seg.doors:
+                if door.target_segment_id in (None, -1):
+                    unconnected = (seg, door)
+                    break
+            if unconnected:
                 break
 
-            if choice["type"] != "sala" or choice["doors"] > 0:
-                queue.append(new_seg_id)
+        if unconnected is None:
+            # All doors connected — place Final Room on last segment if not already
+            if final_room_id is None:
+                last_seg = max(graph.segments.values(), key=lambda s: s.id)
+                last_seg.is_final_room = True
+                last_seg.type = SegmentType.SALA_FINAL
+                last_seg.doors = []
+                final_room_id = last_seg.id
+            break
 
-        # Set door targets for current segment
-        seg.doors = [
-            Door(index=i, state=DoorState.FECHADA, target_segment_id=tid)
-            for i, tid in enumerate(new_door_targets)
-        ]
+        parent_seg, door = unconnected
+        t_table = transition_map.get(parent_seg.type, tables.ROOM_TRANSITIONS)
+        roll = random.randint(1, 6)
+        choice = t_table[roll - 1]
 
-        # Check if we need to place Final Room as leaf
-        if not queue and final_room_id is None:
-            # Last processed segment becomes Final Room if not already
-            # Remove any doors from this segment — Final Room has no exits (boss room)
-            if not seg.is_final_room:
-                seg.is_final_room = True
-                seg.type = SegmentType.SALA_FINAL
-                seg.doors = []  # No exit doors in Final Room
-                final_room_id = seg.id
+        new_level = parent_seg.level
+        if choice["type"] == "escadaria":
+            new_level = parent_seg.level + 1
 
+        new_type = type_map.get(choice["type"], SegmentType.SALA)
+
+        is_final = False
+        if new_level >= 3 and new_type == SegmentType.ESCADARIA:
+            new_type = SegmentType.SALA_FINAL
+            is_final = True
+
+        # Final Room has no exit doors (boss room)
+        final_doors_count = 0 if is_final else choice.get("doors", 0)
+
+        new_seg_id = graph._allocate_id()
+        new_segment = Segment(
+            id=new_seg_id,
+            type=new_type,
+            level=new_level,
+            is_final_room=is_final,
+        )
+        create_doors_for_segment(new_segment, [
+            -1 for _ in range(final_doors_count)
+        ])
+        graph.segments[new_seg_id] = new_segment
+        if new_level > graph.max_level:
+            graph.max_level = new_level
+
+        # Connect the door
+        door.target_segment_id = new_seg_id
+
+        if is_final:
+            final_room_id = new_seg_id
+            break
+
+    # Ensure Final Room is marked
     if final_room_id is not None:
         final_room = graph.segments.get(final_room_id)
         if final_room:

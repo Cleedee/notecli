@@ -13,7 +13,7 @@
 
 ## Requirement Completeness
 
-- [ ] No [NEEDS CLARIFICATION] markers remain
+- [x] No [NEEDS CLARIFICATION] markers remain
 - [x] Requirements are testable and unambiguous
 - [x] Success criteria are measurable
 - [x] Success criteria are technology-agnostic (no implementation details)
@@ -31,6 +31,5 @@
 
 ## Notes
 
-- **NEEDS CLARIFICATION remaining**: 1 marker in Key Entities — "profession list and effects not yet defined"
-  - This is low-impact: profession randomization is already a known pattern from ancestry, and the feature scope (menu + create) does not depend on profession details. Can be deferred to planning phase.
-- Items marked incomplete require spec updates before `/speckit.clarify` or `/speckit.plan`
+- ✅ All checklist items passed — spec is ready for `/speckit.plan`
+- Clarificação resolvida: Profession details now documented (11 professions, 2d6 roll, +4 HP each, starting weapon defined in `src/notecli/entities/occupation.py`)

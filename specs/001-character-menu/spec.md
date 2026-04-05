@@ -76,8 +76,8 @@ O usuário executa `notecli character`, vê um menu interativo com duas opções
 
 ### Key Entities
 
-- **Character Record**: A persistent representation of a player character, including name, ancestry, profession, health points (max and current), magics (with uses), torches, and alive/dead status.
-- **Profession**: A character attribute (like ancestry) that determines starting skills or bonuses. [NEEDS CLARIFICATION: profession list and effects not yet defined]
+- **Character Record**: A persistent representation of a player character, including name, ancestry, profession, health points (max and current), magics (with uses), torches, alive/dead status, and starting weapon.
+- **Profession**: A character attribute determined randomly via 2d6 roll, defined in `src/notecli/entities/occupation.py`. Each profession grants additional hit points (+4) and a starting weapon. Current professions: Mendigo, Coveiro, Nobre, Estudante, Ferreiro, Guarda, Cozinheiro, Chaveiro, Lenhador, Minerador, Gladiador. Mechanical effects beyond HP and starting weapon exist but are out of scope for this feature.
 - **Character Storage**: A local file (e.g., JSON or YAML) that holds an array of character records, one per created character.
 
 ## Success Criteria *(mandatory)*
@@ -93,7 +93,7 @@ O usuário executa `notecli character`, vê um menu interativo com duas opções
 
 - Characters are stored locally on the user's filesystem (no cloud sync or remote database).
 - A reasonable default character storage path exists (e.g., `~/.notecli/characters.json` or a `characters/` directory in the project).
-- Profession randomization uses a similar d6-based table mechanism as ancestry (consistent with existing `tables.py` patterns).
+- Profession randomization uses a 2d6 roll against the occupation table defined in `src/notecli/entities/occupation.py` (11 professions).
 - No character deletion is required for this feature — creation and viewing only.
 - The existing `PlayerCharacter` dataclass and `Ancestry` system will be reused for character creation.
 - Maximum number of characters is not capped for this initial version.

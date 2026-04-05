@@ -34,3 +34,8 @@ class Roller:
     def d6() -> int:
         """Atalho para a rolagem mais comum do NoteQuest."""
         return random.randint(1, 6)
+
+    @staticmethod
+    def roll_2d6() -> int:
+        """Rolagem 2d6 para ancestralidade e profissão (resultado 2-12)."""
+        return Roller.roll("2d6")

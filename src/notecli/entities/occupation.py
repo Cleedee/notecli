@@ -1,7 +1,9 @@
 from dataclasses import dataclass
 from typing import Callable
 
+from notecli.dice import Roller
 from notecli.entities.player import PlayerCharacter
+from notecli.entities.magic import BASIC_MAGICS
 
 @dataclass
 class Occupation:
@@ -10,8 +12,24 @@ class Occupation:
     starting_weapon: str
     advantage_applier: Callable
 
+def _randomize_magics(pc: PlayerCharacter, quantity):
+    for _ in range(quantity):
+        magic = BASIC_MAGICS.get(Roller.d6(), {})
+        print(magic['name'])
+        query_magic = pc.has_magic(magic['name'])
+        if query_magic:
+            query_magic['uses'] += 1
+        else:
+            pc.magics.append(magic)
+
 def apply_generic(pc: PlayerCharacter):
     pass
+
+def apply_noble(pc: PlayerCharacter):
+    _randomize_magics(pc, 1)
+
+def apply_student(pc: PlayerCharacter):
+    _randomize_magics(pc, 3)
 
 BEGGAR = Occupation("Mendigo", 4, "pedaço de pau", apply_generic)
 GRAVEDIGGER = Occupation("Coveiro", 2, "pá", apply_generic)

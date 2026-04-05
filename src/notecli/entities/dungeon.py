@@ -239,9 +239,12 @@ def generate_full_dungeon(graph: DungeonGraph, dungeon_type_name: str) -> None:
             # Check for Final Room conditions
             is_final = False
             if new_level >= 3 and new_type == SegmentType.ESCADARIA:
-                # Entering level 3 → Final Room
+                # Entering level 3 → Final Room (no doors, boss room)
                 new_type = SegmentType.SALA_FINAL
                 is_final = True
+
+            # Final Room never has exit doors — the boss is here
+            final_doors_count = 0 if is_final else choice.get("doors", 0)
 
             # Create target segment (or reuse if already exists at this level+type)
             new_seg_id = graph._allocate_id()
@@ -252,7 +255,7 @@ def generate_full_dungeon(graph: DungeonGraph, dungeon_type_name: str) -> None:
                 is_final_room=is_final,
             )
             create_doors_for_segment(new_segment, [
-                -1 for _ in range(choice["doors"])
+                -1 for _ in range(final_doors_count)
             ])
             graph.segments[new_seg_id] = new_segment
             if new_level > graph.max_level:
@@ -276,9 +279,11 @@ def generate_full_dungeon(graph: DungeonGraph, dungeon_type_name: str) -> None:
         # Check if we need to place Final Room as leaf
         if not queue and final_room_id is None:
             # Last processed segment becomes Final Room if not already
+            # Remove any doors from this segment — Final Room has no exits (boss room)
             if not seg.is_final_room:
                 seg.is_final_room = True
                 seg.type = SegmentType.SALA_FINAL
+                seg.doors = []  # No exit doors in Final Room
                 final_room_id = seg.id
 
     if final_room_id is not None:

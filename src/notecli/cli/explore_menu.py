@@ -396,13 +396,16 @@ def _save_session(graph: DungeonGraph) -> None:
 
 
 def _save_character(pc) -> None:
-    """Persist character state."""
+    """Persist character state safely — never overwrite with empty list."""
     characters = load_characters()
+    if not characters:
+        return  # Safety guard: never save empty list
     for i, ch in enumerate(characters):
         if ch.get("name") == pc.name and ch.get("ancestry") == pc.ancestry:
             characters[i] = pc.to_dict()
-            break
-    save_characters(characters)
+            save_characters(characters)
+            return
+    # If character not found, don't save — avoid corrupting existing data
 
 
 def _deactivate_session() -> None:

@@ -2,9 +2,11 @@
 
 from dataclasses import dataclass, field
 from typing import Optional
+import random
 
 from notecli.entities.dungeon_name import generate_dungeon_name
-from notecli.entities.segment import Segment, SegmentType
+from notecli.entities.segment import Segment, SegmentType, create_doors_for_segment
+from notecli.entities.door import Door, DoorState
 
 
 @dataclass
@@ -45,32 +47,35 @@ class DungeonGraph:
         self._next_id += 1
         return seg_id
 
-    def add_segment(self, segment: Segment) -> int:
-        """Add a segment to the graph and return its ID."""
-        if segment.id not in self.segments:
-            self.segments[segment.id] = segment
-            if segment.level > self.max_level:
-                self.max_level = segment.level
-        return segment.id
-
     def create_segment(
         self,
         seg_type: SegmentType,
         level: int,
-        doors_count: int,
+        door_target_ids: list[int],
         is_final_room: bool = False,
         has_monsters: bool = False,
     ) -> Segment:
-        """Create and add a new segment to the graph."""
+        """Create and add a new segment to the graph with doors.
+
+        Args:
+            seg_type: Type of segment.
+            level: Dungeon level.
+            door_target_ids: List of target segment IDs for each door.
+            is_final_room: Whether this is the Final Room.
+            has_monsters: Whether this segment has monsters.
+
+        Returns:
+            The newly created segment.
+        """
         seg_id = self._allocate_id()
         segment = Segment(
             id=seg_id,
             type=seg_type,
             level=level,
-            doors_count=doors_count,
             is_final_room=is_final_room,
             has_monsters=has_monsters,
         )
+        create_doors_for_segment(segment, door_target_ids)
         self.segments[seg_id] = segment
         if level > self.max_level:
             self.max_level = level
@@ -126,6 +131,37 @@ class DungeonGraph:
         return graph
 
 
+def roll_door() -> DoorState:
+    """Roll d6 to determine door state.
+
+    Returns:
+        DoorState: 1=ARMADILHA, 2-3=TRANCADA, 4-6=DESTRANCADA.
+    """
+    roll = random.randint(1, 6)
+    if roll == 1:
+        return DoorState.ARMADILHA
+    elif roll <= 3:
+        return DoorState.TRANCADA
+    else:
+        return DoorState.DESTRANCADA
+
+
+def trigger_trap(dungeon_type_name: str) -> str:
+    """Trigger a trap and return the result from the appropriate trap table.
+
+    Args:
+        dungeon_type_name: Name of the current dungeon type.
+
+    Returns:
+        Trap result string (placeholder for now).
+    """
+    from notecli.tables import TRAP_TABLES
+
+    table = TRAP_TABLES.get(dungeon_type_name, TRAP_TABLES["Templo"])
+    roll = random.randint(1, 6)
+    return table[roll - 1]
+
+
 def generate_initial_segment(graph: DungeonGraph) -> Segment:
     """Generate the initial staircase segment (level 1, 1 door).
 
@@ -135,97 +171,206 @@ def generate_initial_segment(graph: DungeonGraph) -> Segment:
     Returns:
         The newly created initial segment.
     """
+    # Target ID will be set later during full generation
     segment = graph.create_segment(
         seg_type=SegmentType.ESCADARIA,
         level=1,
-        doors_count=1,
+        door_target_ids=[-1],  # Placeholder, set during generation
     )
     graph.set_current(segment.id)
     return segment
 
 
-def generate_next_segment(
-    graph: DungeonGraph, door_index: int
-) -> Segment:
-    """Generate a new segment by opening a door from the current segment.
+def generate_full_dungeon(graph: DungeonGraph, dungeon_type_name: str) -> None:
+    """Generate the entire dungeon before exploration begins.
 
-    Uses the transition table corresponding to the current segment type.
+    Uses BFS expansion from the initial staircase until the Final Room
+    is placed (level 3 or leaf node).
+
+    Args:
+        graph: The DungeonGraph to populate.
+        dungeon_type_name: Name of the dungeon type (for trap table reference).
+    """
+    from notecli import tables
+
+    # Create initial staircase
+    initial = generate_initial_segment(graph)
+
+    # BFS queue: (segment_id, is_staircase_source)
+    # We need to track which segments need door targets assigned
+    queue: list[int] = [initial.id]
+    processed: set[int] = set()
+    final_room_id: Optional[int] = None
+
+    while queue and final_room_id is None:
+        seg_id = queue.pop(0)
+        if seg_id in processed:
+            continue
+        processed.add(seg_id)
+
+        seg = graph.segments[seg_id]
+        transition_map = {
+            SegmentType.ESCADARIA: tables.STAIRCASE_TRANSITIONS,
+            SegmentType.CORREDOR: tables.CORRIDOR_TRANSITIONS,
+            SegmentType.SALA: tables.ROOM_TRANSITIONS,
+        }
+        transition_table = transition_map.get(seg.type, tables.ROOM_TRANSITIONS)
+
+        new_door_targets: list[int] = []
+
+        for i in range(seg.doors_count):
+            # Roll transition table
+            roll = random.randint(1, 6)
+            choice = transition_table[roll - 1]
+
+            # Determine level
+            new_level = seg.level
+            if choice["type"] == "escadaria":
+                new_level = seg.level + 1
+
+            # Determine segment type
+            type_map = {
+                "escadaria": SegmentType.ESCADARIA,
+                "corredor": SegmentType.CORREDOR,
+                "sala": SegmentType.SALA,
+            }
+            new_type = type_map.get(choice["type"], SegmentType.SALA)
+
+            # Check for Final Room conditions
+            is_final = False
+            if new_level >= 3 and new_type == SegmentType.ESCADARIA:
+                # Entering level 3 → Final Room
+                new_type = SegmentType.SALA_FINAL
+                is_final = True
+
+            # Create target segment (or reuse if already exists at this level+type)
+            new_seg_id = graph._allocate_id()
+            new_segment = Segment(
+                id=new_seg_id,
+                type=new_type,
+                level=new_level,
+                is_final_room=is_final,
+            )
+            create_doors_for_segment(new_segment, [
+                -1 for _ in range(choice["doors"])
+            ])
+            graph.segments[new_seg_id] = new_segment
+            if new_level > graph.max_level:
+                graph.max_level = new_level
+
+            new_door_targets.append(new_seg_id)
+
+            if is_final:
+                final_room_id = new_seg_id
+                break
+
+            if choice["type"] != "sala" or choice["doors"] > 0:
+                queue.append(new_seg_id)
+
+        # Set door targets for current segment
+        seg.doors = [
+            Door(index=i, state=DoorState.FECHADA, target_segment_id=tid)
+            for i, tid in enumerate(new_door_targets)
+        ]
+
+        # Check if we need to place Final Room as leaf
+        if not queue and final_room_id is None:
+            # Last processed segment becomes Final Room if not already
+            if not seg.is_final_room:
+                seg.is_final_room = True
+                seg.type = SegmentType.SALA_FINAL
+                final_room_id = seg.id
+
+    if final_room_id is not None:
+        final_room = graph.segments.get(final_room_id)
+        if final_room:
+            final_room.is_final_room = True
+            final_room.type = SegmentType.SALA_FINAL
+
+
+def open_door(graph: DungeonGraph, door_index: int, dungeon_type_name: str) -> tuple[DoorState, str]:
+    """Open a door from the current segment, rolling for result.
 
     Args:
         graph: The DungeonGraph.
         door_index: Which door to open (0-based).
+        dungeon_type_name: Name of current dungeon type (for trap table).
 
     Returns:
-        The newly created or existing target segment.
+        Tuple of (DoorState, trap_result_message).
 
     Raises:
         ValueError: If current segment is None or door is out of range.
     """
-    from notecli import tables
-    import random
-
     current = graph.current_segment()
     if current is None:
         raise ValueError("No current segment.")
-    if door_index < 0 or door_index >= current.doors_count:
+
+    door = current.get_door(door_index)
+    if door is None:
         raise ValueError(f"Invalid door index: {door_index}. Segment has {current.doors_count} doors.")
 
-    # Check if door already opened
-    existing_target = current.get_target(door_index)
-    if existing_target is not None:
-        return graph.segments[existing_target]
+    # Already opened
+    if door.is_opened():
+        return door.state, "Porta já foi aberta."
 
-    # Select transition table based on current segment type
-    transition_map = {
-        SegmentType.ESCADARIA: tables.STAIRCASE_TRANSITIONS,
-        SegmentType.CORREDOR: tables.CORRIDOR_TRANSITIONS,
-        SegmentType.SALA: tables.ROOM_TRANSITIONS,
-        SegmentType.SALA_FINAL: tables.ROOM_TRANSITIONS,
-    }
-    transition_table = transition_map.get(current.type, tables.ROOM_TRANSITIONS)
+    # Roll for door state
+    state = roll_door()
+    door.state = state
 
-    # Roll d6 to select from table
-    roll = random.randint(1, 6)
-    choice = transition_table[roll - 1]
+    trap_msg = ""
+    if state == DoorState.ARMADILHA:
+        trap_result = trigger_trap(dungeon_type_name)
+        trap_msg = f"⚠️ Armadilha! {trap_result}"
+    elif state == DoorState.TRANCADA:
+        trap_msg = "🔒 Porta Trancada! Use 'destrancar' para abrir (consome 1 tocha)."
+    else:
+        trap_msg = "✅ Porta Destrancada!"
 
-    # Determine level
-    new_level = current.level
-    if choice["type"] == "escadaria":
-        new_level = current.level + 1
+    # Move to target segment
+    target = graph.segments.get(door.target_segment_id)
+    if target:
+        graph.set_current(target.id)
 
-    # Determine segment type
-    type_map = {
-        "escadaria": SegmentType.ESCADARIA,
-        "corredor": SegmentType.CORREDOR,
-        "sala": SegmentType.SALA,
-    }
-    new_type = type_map.get(choice["type"], SegmentType.SALA)
+    return state, trap_msg
 
-    # Check for Final Room conditions
-    is_final = False
-    if new_level >= 3 and new_type == SegmentType.ESCADARIA:
-        # Entering level 3 → Final Room
-        new_type = SegmentType.SALA_FINAL
-        is_final = True
 
-    # Create the new segment
-    new_segment = graph.create_segment(
-        seg_type=new_type,
-        level=new_level,
-        doors_count=choice["doors"],
-        is_final_room=is_final,
-    )
+def unlock_door(graph: DungeonGraph, door_index: int, pc) -> tuple[bool, str]:
+    """Unlock a locked door, consuming 1 torch.
 
-    # Record the connection
-    current.add_connection(door_index, new_segment.id)
-    graph.set_current(new_segment.id)
+    Args:
+        graph: The DungeonGraph.
+        door_index: Which door to unlock (0-based).
+        pc: The PlayerCharacter (to consume torch).
 
-    # Check if this should be Final Room (no more path forward and level < 3)
-    if not is_final and new_segment.doors_count == 0 and graph.max_level < 3:
-        # Mark as Final Room if no doors and can't reach level 3
-        new_segment.is_final_room = True
+    Returns:
+        Tuple of (success, message).
+    """
+    current = graph.current_segment()
+    if current is None:
+        return False, "Erro: nenhum segmento atual."
 
-    return new_segment
+    door = current.get_door(door_index)
+    if door is None:
+        return False, f"Porta {door_index + 1} não existe."
+
+    if door.state == DoorState.DESTRANCADA:
+        return False, f"Porta {door_index + 1} já está destrancada."
+
+    if door.state != DoorState.TRANCADA:
+        return False, f"Porta {door_index + 1} não está trancada."
+
+    if pc.torches < 1:
+        return False, "🌑 Suas tochas acabaram! Não é possível destrancar a porta."
+
+    pc.consume_torch()
+    door.state = DoorState.DESTRANCADA
+
+    target = graph.segments.get(door.target_segment_id)
+    if target:
+        graph.set_current(target.id)
+
+    return True, f"🔑 Porta {door_index + 1} destrancada!"
 
 
 @dataclass
@@ -260,7 +405,6 @@ class ExplorationSession:
     def from_dict(cls, data: dict) -> "ExplorationSession":
         """Reconstruct an ExplorationSession from a stored dictionary."""
         dungeon_data = data["dungeon"]
-        # Look up the DungeonType by name
         from notecli import tables
 
         dungeon_type = None

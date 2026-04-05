@@ -11,9 +11,12 @@ from notecli.entities.dungeon import (
     DungeonGraph,
     ExplorationSession,
     generate_initial_segment,
-    generate_next_segment,
+    generate_full_dungeon,
+    open_door,
+    unlock_door,
 )
 from notecli.entities.segment import SegmentType
+from notecli.entities.door import DoorState
 from notecli.cli.storage import (
     load_characters,
     save_exploration,
@@ -34,6 +37,13 @@ _SEGMENT_NAMES = {
     SegmentType.CORREDOR: "Corredor",
     SegmentType.SALA: "Sala",
     SegmentType.SALA_FINAL: "Sala Final",
+}
+
+_DOOR_STATE_ICONS = {
+    DoorState.FECHADA: "🔒",
+    DoorState.ARMADILHA: "⚠️",
+    DoorState.TRANCADA: "🔐",
+    DoorState.DESTRANCADA: "✅",
 }
 
 
@@ -62,29 +72,30 @@ def display_segment(segment, graph: Optional[DungeonGraph] = None) -> None:
     if segment.is_final_room:
         print("   🏆 Você encontrou a Sala Final!")
 
-    doors = segment.doors_count
     remaining = segment.remaining_doors_count()
-    opened = segment.opened_doors_count()
+    locked = segment.locked_doors_count()
+    total = segment.doors_count
 
-    if doors == 0:
+    if total == 0:
         print("   Nenhuma porta disponível — caminho sem saída.")
-    elif remaining == 0:
-        print(f"   {opened} porta(s) já explorada(s). Nenhuma restante.")
+    elif remaining == 0 and total > 0:
+        print(f"   {total} porta(s) já explorada(s). Nenhuma restante.")
     elif remaining == 1:
-        print(f"   {remaining} porta à frente.")
+        desc = f"{remaining} porta"
+        if locked > 0:
+            desc += f" ({locked} trancada)"
+        print(f"   {desc} à frente.")
     else:
-        print(f"   {remaining} portas à frente.")
+        desc = f"{remaining} portas"
+        if locked > 0:
+            desc += f" ({locked} trancada(s))"
+        print(f"   {desc} à frente.")
 
-    # Show already-opened doors info
-    for door_idx, target_id in segment.connected_segments:
-        target = graph.segments.get(target_id) if graph else None
-        target_desc = ""
-        if target:
-            t_name = _SEGMENT_NAMES.get(target.type, target.type.value)
-            target_desc = f" → {t_name} (Nível {target.level})"
-            if target.is_final_room:
-                target_desc += " 🏆"
-        print(f"   Porta {door_idx + 1}{target_desc} (explorada)")
+    # Show door states
+    for door in segment.doors:
+        icon = _DOOR_STATE_ICONS.get(door.state, "❓")
+        status = door.state.value.title()
+        print(f"   {icon} Porta {door.index + 1}: {status}")
 
 
 def select_or_create_character():
@@ -182,6 +193,8 @@ def show_character_status(pc) -> None:
 
 def exploration_loop(pc, dungeon, graph: DungeonGraph) -> None:
     """Main exploration loop: display segment, accept commands."""
+    dungeon_type_name = dungeon.type.name
+
     while True:
         current = graph.current_segment()
         if current is None:
@@ -193,10 +206,11 @@ def exploration_loop(pc, dungeon, graph: DungeonGraph) -> None:
 
         # Build action prompt
         actions = []
-        if current.remaining_doors_count() > 0:
-            for d in range(current.doors_count):
-                if not current.is_connected(d):
-                    actions.append(f"abrir {d + 1}")
+        for door in current.doors:
+            if not door.is_opened():
+                actions.append(f"abrir {door.index + 1}")
+            elif door.is_locked():
+                actions.append(f"destrancar {door.index + 1}")
         actions.append("voltar")
         actions.append("sair")
         actions.append("ajuda")
@@ -211,12 +225,13 @@ def exploration_loop(pc, dungeon, graph: DungeonGraph) -> None:
 
         if cmd == "ajuda":
             print("\nComandos disponíveis:")
-            print("  abrir <N>  — Abre a porta N")
-            print("  voltar     — Retorna ao segmento anterior")
-            print("  sair       — Tenta sair da masmorra")
-            print("  status     — Mostra status do personagem")
-            print("  ajuda      — Mostra esta ajuda")
-            print("  q/sair     — Sai do jogo")
+            print("  abrir <N>       — Abre a porta N (rolagem d6)")
+            print("  destrancar <N>  — Destranc porta N (consome 1 tocha)")
+            print("  voltar          — Retorna ao segmento anterior")
+            print("  sair            — Tenta sair da masmorra")
+            print("  status          — Mostra status do personagem")
+            print("  ajuda           — Mostra esta ajuda")
+            print("  q               — Sai do jogo")
             continue
 
         if cmd in ("q", "sair"):
@@ -242,7 +257,7 @@ def exploration_loop(pc, dungeon, graph: DungeonGraph) -> None:
                 print("⚠️ Número da porta inválido.", file=sys.stderr)
                 continue
 
-            door_idx = door_num - 1  # 0-based
+            door_idx = door_num - 1
             if door_idx < 0 or door_idx >= current.doors_count:
                 print(
                     f"⚠️ Porta {door_num} não existe. Este segmento tem {current.doors_count} portas.",
@@ -250,62 +265,83 @@ def exploration_loop(pc, dungeon, graph: DungeonGraph) -> None:
                 )
                 continue
 
-            _handle_open_door(pc, graph, door_idx)
+            _handle_open_door(pc, graph, door_idx, dungeon_type_name)
 
             # Check if we reached Final Room
             new_current = graph.current_segment()
             if new_current and new_current.is_final_room:
                 display_segment(new_current, graph)
                 print("\n🎉 Você completou a masmorra!")
-                # Save and offer exit
-                session_data = load_exploration()
-                if session_data:
-                    session_data["active"] = False
-                    from notecli.cli.storage import save_exploration as _save
-                    _save({"version": 1, "session": session_data})
+                _deactivate_session()
                 return
 
+            continue
+
+        if cmd.startswith("destrancar"):
+            parts = cmd.split()
+            if len(parts) < 2:
+                print("⚠️ Use: destrancar <número da porta>", file=sys.stderr)
+                continue
+            try:
+                door_num = int(parts[1])
+            except ValueError:
+                print("⚠️ Número da porta inválido.", file=sys.stderr)
+                continue
+
+            door_idx = door_num - 1
+            _handle_unlock_door(pc, graph, door_idx)
             continue
 
         print("⚠️ Comando desconhecido. Digite 'ajuda' para ver as opções.", file=sys.stderr)
 
 
-def _handle_open_door(pc, graph: DungeonGraph, door_idx: int) -> None:
-    """Handle opening a door, generating or visiting the target segment."""
-    current = graph.current_segment()
+def _handle_open_door(pc, graph: DungeonGraph, door_idx: int, dungeon_type_name: str) -> None:
+    """Handle opening a door with roll."""
+    from notecli.entities.door import DoorState
 
-    # If door already opened, just show info
-    target_id = current.get_target(door_idx)
-    if target_id is not None:
-        target = graph.segments.get(target_id)
+    current = graph.current_segment()
+    door = current.get_door(door_idx)
+
+    # Already opened
+    if door and door.is_opened():
+        target = graph.segments.get(door.target_segment_id)
         if target:
             t_name = _SEGMENT_NAMES.get(target.type, target.type.value)
-            print(f"\n🚪 Porta {door_idx + 1} já foi aberta. Ela leva a: {t_name} (Nível {target.level})")
+            print(f"\n🚪 Porta {door_idx + 1} já foi aberta ({door.state.value}). Ela leva a: {t_name} (Nível {target.level})")
             graph.set_current(target.id)
             display_segment(target, graph)
         return
 
-    print(f"\n🚪 Você abre a porta {door_idx + 1}...")
+    print(f"\n🚪 Você tenta abrir a porta {door_idx + 1}...")
+    state, msg = open_door(graph, door_idx, dungeon_type_name)
 
-    new_segment = generate_next_segment(graph, door_idx)
+    print(f"🎲 Rolagem: {msg}")
 
-    # Consume 1 torch on entering new segment
-    pc.consume_torch()
+    if state == DoorState.ARMADILHA:
+        print(f"   ⚠️ Armadilha acionada! (placeholder)")
+    elif state == DoorState.TRANCADA:
+        print(f"   🔒 A porta está trancada. Use 'destrancar {door_idx + 1}' para abrir.")
+    else:
+        target = graph.current_segment()
+        if target:
+            display_segment(target, graph)
 
-    # Persist character
-    characters = load_characters()
-    for i, ch in enumerate(characters):
-        if ch.get("name") == pc.name and ch.get("ancestry") == pc.ancestry:
-            characters[i] = pc.to_dict()
-            break
-    save_characters(characters)
+    _save_session(graph)
 
-    # Persist session
-    session_data = load_exploration()
-    if session_data:
-        session_data["segment_graph"] = graph.to_dict()
-        from notecli.cli.storage import save_exploration as _save
-        _save({"version": 1, "session": session_data})
+
+def _handle_unlock_door(pc, graph: DungeonGraph, door_idx: int) -> None:
+    """Handle unlocking a door, consuming torch."""
+    success, msg = unlock_door(graph, door_idx, pc)
+    print(f"\n{msg}")
+
+    if success:
+        target = graph.current_segment()
+        if target:
+            display_segment(target, graph)
+
+        # Persist character
+        _save_character(pc)
+        _save_session(graph)
 
 
 def _handle_backtrack(pc, graph: DungeonGraph) -> None:
@@ -319,18 +355,11 @@ def _handle_backtrack(pc, graph: DungeonGraph) -> None:
     if prev:
         print("\n🔙 Você retorna ao segmento anterior...")
         display_segment(prev, graph)
-
-        # Persist session
-        session_data = load_exploration()
-        if session_data:
-            session_data["segment_graph"] = graph.to_dict()
-            from notecli.cli.storage import save_exploration as _save
-            _save({"version": 1, "session": session_data})
+        _save_session(graph)
 
 
 def _handle_exit(pc, graph: DungeonGraph) -> None:
     """Handle exiting the dungeon."""
-    # Check if path to entrance has monsters
     has_monsters = False
     for seg_id in graph.visited_stack:
         seg = graph.segments.get(seg_id)
@@ -348,26 +377,41 @@ def _handle_exit(pc, graph: DungeonGraph) -> None:
             return
 
         if choice == "s":
-            # Deactivate session
-            session_data = load_exploration()
-            if session_data:
-                session_data["active"] = False
-                from notecli.cli.storage import save_exploration as _save
-                _save({"version": 1, "session": session_data})
-
-            # Persist character
-            characters = load_characters()
-            for i, ch in enumerate(characters):
-                if ch.get("name") == pc.name and ch.get("ancestry") == pc.ancestry:
-                    characters[i] = pc.to_dict()
-                    break
-            save_characters(characters)
-
+            _deactivate_session()
+            _save_character(pc)
             print("\n🏁 Você sai da masmorra com vida.")
             print(f"   Personagem {pc.name} salvo.")
             return
 
     print("Continuando a exploração...")
+
+
+def _save_session(graph: DungeonGraph) -> None:
+    """Persist current session state."""
+    session_data = load_exploration()
+    if session_data:
+        session_data["segment_graph"] = graph.to_dict()
+        from notecli.cli.storage import save_exploration as _save
+        _save({"version": 1, "session": session_data})
+
+
+def _save_character(pc) -> None:
+    """Persist character state."""
+    characters = load_characters()
+    for i, ch in enumerate(characters):
+        if ch.get("name") == pc.name and ch.get("ancestry") == pc.ancestry:
+            characters[i] = pc.to_dict()
+            break
+    save_characters(characters)
+
+
+def _deactivate_session() -> None:
+    """Deactivate the current exploration session."""
+    session_data = load_exploration()
+    if session_data:
+        session_data["active"] = False
+        from notecli.cli.storage import save_exploration as _save
+        _save({"version": 1, "session": session_data})
 
 
 def explore(resume: bool = False) -> None:
@@ -423,26 +467,22 @@ def explore(resume: bool = False) -> None:
         print("Exploração cancelada.")
         return
 
-    # Initialize segment graph
+    # Generate FULL dungeon before exploration
     graph = DungeonGraph()
-    initial = generate_initial_segment(graph)
+    generate_full_dungeon(graph, dungeon.type.name)
+
+    # Set current to initial segment
+    initial_id = 0
+    graph.set_current(initial_id)
 
     # Display initial segment
     print("\n" + "=" * 40)
-    display_segment(initial, graph)
-
-    # Consume 1 torch on exploration start
-    pc.consume_torch()
-
-    # Persist updated character
-    characters = load_characters()
-    for i, ch in enumerate(characters):
-        if ch.get("name") == pc.name and ch.get("ancestry") == pc.ancestry:
-            characters[i] = pc.to_dict()
-            break
-    save_characters(characters)
+    initial = graph.current_segment()
+    if initial:
+        display_segment(initial, graph)
 
     # Find character index
+    characters = load_characters()
     char_index = 0
     for i, ch in enumerate(characters, 1):
         if ch.get("name") == pc.name and ch.get("ancestry") == pc.ancestry:

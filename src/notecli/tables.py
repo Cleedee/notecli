@@ -143,3 +143,32 @@ ROOM_TRANSITIONS = [
     {"type": "sala", "doors": 0},
     {"type": "escadaria", "doors": 1},
 ]
+
+# Trap tables: one per dungeon type, 6 placeholder entries each.
+# To be implemented in a future feature.
+TRAP_TABLES = {
+    "Palácio": [
+        "placeholder", "placeholder", "placeholder",
+        "placeholder", "placeholder", "placeholder",
+    ],
+    "Cripta": [
+        "placeholder", "placeholder", "placeholder",
+        "placeholder", "placeholder", "placeholder",
+    ],
+    "Tumba": [
+        "placeholder", "placeholder", "placeholder",
+        "placeholder", "placeholder", "placeholder",
+    ],
+    "Santuário": [
+        "placeholder", "placeholder", "placeholder",
+        "placeholder", "placeholder", "placeholder",
+    ],
+    "Templo": [
+        "placeholder", "placeholder", "placeholder",
+        "placeholder", "placeholder", "placeholder",
+    ],
+    "Calabouço": [
+        "placeholder", "placeholder", "placeholder",
+        "placeholder", "placeholder", "placeholder",
+    ],
+}

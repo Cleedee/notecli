@@ -39,9 +39,6 @@ _SEGMENT_NAMES = {
     SegmentType.SALA_FINAL: "Sala Final",
 }
 
-_DOOR_STATE_ICONS = {
-}
-
 
 def _prompt(prompt_text: str) -> str:
     """Read user input with a prompt, returning stripped text."""
@@ -89,9 +86,8 @@ def display_segment(segment, graph: Optional[DungeonGraph] = None) -> None:
 
     # Show door states
     for door in segment.doors:
-        icon = _DOOR_STATE_ICONS.get(door.state, "❓")
-        status = door.state.value.title()
-        print(f"   {icon} Porta {door.index + 1}: {status}")
+        status = door.display_status()
+        print(f"   {status} — Porta {door.index + 1}")
 
 
 def select_or_create_character():
@@ -203,9 +199,9 @@ def exploration_loop(pc, dungeon, graph: DungeonGraph) -> None:
         # Build action prompt
         actions = []
         for door in current.doors:
-            if not door.is_opened():
+            if not door.is_open:
                 actions.append(f"abrir {door.index + 1}")
-            elif door.is_locked():
+            elif door.is_locked:
                 actions.append(f"destrancar {door.index + 1}")
         actions.append("voltar")
         actions.append("sair")
@@ -305,11 +301,11 @@ def _handle_open_door(pc, graph: DungeonGraph, door_idx: int, dungeon_type_name:
     door = current.get_door(door_idx)
 
     # Already opened
-    if door and door.is_opened():
+    if door and door.is_open:
         target = graph.segments.get(door.target_segment_id)
         if target:
             t_name = _SEGMENT_NAMES.get(target.type, target.type.value)
-            print(f"\n🚪 Porta {door_idx + 1} já foi aberta ({door.state.value}). Ela leva a: {t_name} (Nível {target.level})")
+            print(f"\n🚪 Porta {door_idx + 1} já foi aberta ({door.display_status()}). Ela leva a: {t_name} (Nível {target.level})")
             graph.set_current(target.id)
             display_segment(target, graph)
         return

@@ -9,7 +9,7 @@ import json
 from notecli.cli.map_display import display_map
 from notecli.entities.dungeon import DungeonGraph, DungeonType
 from notecli.entities.segment import Segment, SegmentType, create_doors_for_segment
-from notecli.entities.door import DoorState
+
 
 
 class TestMapDisplay(unittest.TestCase):

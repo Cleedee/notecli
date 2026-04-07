@@ -4,7 +4,7 @@ from dataclasses import dataclass, field
 from enum import Enum
 from typing import List, Optional
 
-from notecli.entities.door import Door, DoorState
+from notecli.entities.door import Door
 
 
 class SegmentType(Enum):
@@ -46,12 +46,12 @@ class Segment:
         return None
 
     def opened_doors_count(self) -> int:
-        """Return number of doors that have been opened."""
-        return sum(1 for d in self.doors if d.is_opened())
+        """Return number of doors that are currently open."""
+        return sum(1 for d in self.doors if d.is_open)
 
     def remaining_doors_count(self) -> int:
-        """Return number of doors that haven't been opened yet."""
-        return sum(1 for d in self.doors if not d.is_opened())
+        """Return number of doors that are not open."""
+        return sum(1 for d in self.doors if not d.is_open)
 
     def locked_doors_count(self) -> int:
         """Return number of doors that are locked."""
@@ -85,13 +85,13 @@ class Segment:
 
 
 def create_doors_for_segment(seg: "Segment", target_ids: List[int]) -> None:
-    """Create FECHADA doors for a segment with given target IDs.
+    """Create closed doors for a segment with given target IDs.
 
     Args:
         seg: The segment to add doors to.
         target_ids: List of target segment IDs for each door.
     """
     seg.doors = [
-        Door(index=i, state=DoorState.FECHADA, target_segment_id=tid)
+        Door(index=i, is_open=False, is_locked=False, has_trap=False, target_segment_id=tid)
         for i, tid in enumerate(target_ids)
     ]

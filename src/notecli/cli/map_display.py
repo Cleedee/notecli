@@ -4,7 +4,7 @@ import sys
 
 from notecli.cli.storage import load_exploration
 from notecli.entities.segment import SegmentType
-from notecli.entities.door import DoorState
+
 from notecli.entities.dungeon import DungeonGraph
 
 _SEGMENT_EMOJI = {
@@ -21,12 +21,6 @@ _SEGMENT_NAMES = {
     SegmentType.SALA_FINAL: "Sala Final",
 }
 
-_DOOR_ICONS = {
-    DoorState.FECHADA: "🔒",
-    DoorState.ARMADILHA: "⚠️",
-    DoorState.TRANCADA: "🔐",
-    DoorState.DESTRANCADA: "✅",
-}
 
 
 def display_map() -> None:
@@ -67,8 +61,8 @@ def display_map() -> None:
             continue
 
         for i, door in enumerate(seg.doors):
-            icon = _DOOR_ICONS.get(door.state, "❓")
-            state_name = door.state.value.title()
+            icon = door.display_status()
+            state_name = door.display_status()
             target = graph.segments.get(door.target_segment_id)
 
             if target:

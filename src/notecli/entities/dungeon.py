@@ -6,7 +6,7 @@ import random
 
 from notecli.entities.dungeon_name import generate_dungeon_name
 from notecli.entities.segment import Segment, SegmentType, create_doors_for_segment
-from notecli.entities.door import Door, DoorState
+from notecli.entities.door import Door
 
 
 @dataclass
@@ -131,19 +131,51 @@ class DungeonGraph:
         return graph
 
 
-def roll_door() -> DoorState:
-    """Roll d6 to determine door state.
+def close_opened_doors(segment) -> int:
+    """Close all opened doors in a segment."""
+    count = 0
+    for door in segment.doors:
+        if door.is_open:
+            door.close()
+            count += 1
+    return count
 
-    Returns:
-        DoorState: 1=ARMADILHA, 2-3=TRANCADA, 4-6=DESTRANCADA.
+
+
+def enter_room(graph, door_index, dungeon_type_name):
+    """Enter the room through an open, unlocked, trap-free door."""
+    current = graph.current_segment()
+    if current is None:
+        return False, "Erro: nenhum segmento atual."
+
+    door = current.get_door(door_index)
+    if door is None:
+        return False, f"Porta {door_index + 1} nao existe."
+
+    if not door.can_enter():
+        return False, f"Nao e possivel entrar pela porta {door_index + 1}."
+
+    target = graph.segments.get(door.target_segment_id)
+    if target is None:
+        return False, f"Destino da porta {door_index + 1} nao encontrado."
+
+    door.close()
+    close_opened_doors(current)
+
+    graph.set_current(target.id)
+    return True, "🔑 Voce entra. Porta fecha atras."
+
+def roll_door() -> tuple:
+    """Roll d6 to determine door state.
+    Returns: (state_name, message)
     """
     roll = random.randint(1, 6)
     if roll == 1:
-        return DoorState.ARMADILHA
+        return "armadilha", "⚠️ Armadilha acionada!"
     elif roll <= 3:
-        return DoorState.TRANCADA
+        return "trancada", "🔐 Porta Trancada!"
     else:
-        return DoorState.DESTRANCADA
+        return "destrancada", "✅ Porta Destrancada!"
 
 
 def trigger_trap(dungeon_type_name: str) -> str:
@@ -284,64 +316,58 @@ def generate_full_dungeon(graph: DungeonGraph, dungeon_type_name: str) -> None:
             final_room.type = SegmentType.SALA_FINAL
 
 
-def open_door(graph: DungeonGraph, door_index: int, dungeon_type_name: str) -> tuple[DoorState, str]:
-    """Open a door from the current segment, rolling for result.
 
-    Args:
-        graph: The DungeonGraph.
-        door_index: Which door to open (0-based).
-        dungeon_type_name: Name of current dungeon type (for trap table).
-
-    Returns:
-        Tuple of (DoorState, trap_result_message).
-
-    Raises:
-        ValueError: If current segment is None or door is out of range.
-    """
+def open_door(graph, door_index, dungeon_type_name):
+    """Attempt to open a door, rolling for state."""
     current = graph.current_segment()
     if current is None:
-        raise ValueError("No current segment.")
+        return "error", "Erro: nenhum segmento atual."
 
     door = current.get_door(door_index)
     if door is None:
-        raise ValueError(f"Invalid door index: {door_index}. Segment has {current.doors_count} doors.")
+        return "error", f"Porta {door_index + 1} não existe."
 
-    # Already opened
-    if door.is_opened():
-        return door.state, "Porta já foi aberta."
+    if door.is_open:
+        target = graph.segments.get(door.target_segment_id)
+        if target:
+            return "already_open", f"Porta já aberta → {target.type.value} (Nível {target.level})"
+        return "already_open", "Porta já aberta."
 
-    # Roll for door state
-    state = roll_door()
-    door.state = state
+    if door.is_revealed() and not door.is_locked and not door.has_trap:
+        return "already_revealed", "Porta já revelada. Pode entrar."
 
-    trap_msg = ""
-    if state == DoorState.ARMADILHA:
+    if door.is_locked:
+        return "locked", "🔐 Porta Trancada! Use 'destrancar' para abrir (consome 1 tocha)."
+
+    if door.has_trap:
         trap_result = trigger_trap(dungeon_type_name)
-        trap_msg = f"⚠️ Armadilha! {trap_result}"
-    elif state == DoorState.TRANCADA:
-        trap_msg = "🔒 Porta Trancada! Use 'destrancar' para abrir (consome 1 tocha)."
+        door.is_open = True
+        door.has_trap = False
+        return "trap", f"⚠️ Armadilha! {trap_result}"
+
+    state_name, msg = roll_door()
+
+    if state_name == "armadilha":
+        trap_result = trigger_trap(dungeon_type_name)
+        door.is_open = True
+        door.has_trap = True
+        return "trap", f"{msg} {trap_result}"
+
+    elif state_name == "trancada":
+        door.is_locked = True
+        return "trancada", f"{msg} Use 'destrancar' para abrir (consome 1 tocha)."
+
     else:
-        trap_msg = "✅ Porta Destrancada!"
+        if door.target_segment_id is None:
+            return "error", "Erro: porta sem destino."
+        door.is_open = True
+        target = graph.segments.get(door.target_segment_id)
+        if target:
+            msg = f"{msg} → {target.type.value} (Nível {target.level})"
+        return "destrancada", msg
 
-    # Move to target segment
-    target = graph.segments.get(door.target_segment_id)
-    if target:
-        graph.set_current(target.id)
-
-    return state, trap_msg
-
-
-def unlock_door(graph: DungeonGraph, door_index: int, pc) -> tuple[bool, str]:
-    """Unlock a locked door, consuming 1 torch.
-
-    Args:
-        graph: The DungeonGraph.
-        door_index: Which door to unlock (0-based).
-        pc: The PlayerCharacter (to consume torch).
-
-    Returns:
-        Tuple of (success, message).
-    """
+def unlock_door(graph, door_index, pc):
+    """Unlock a locked door by picking the lock, consuming 1 torch."""
     current = graph.current_segment()
     if current is None:
         return False, "Erro: nenhum segmento atual."
@@ -350,25 +376,20 @@ def unlock_door(graph: DungeonGraph, door_index: int, pc) -> tuple[bool, str]:
     if door is None:
         return False, f"Porta {door_index + 1} não existe."
 
-    if door.state == DoorState.DESTRANCADA:
-        return False, f"Porta {door_index + 1} já está destrancada."
-
-    if door.state != DoorState.TRANCADA:
+    if not door.is_locked:
         return False, f"Porta {door_index + 1} não está trancada."
 
     if pc.torches < 1:
         return False, "🌑 Suas tochas acabaram! Não é possível destrancar a porta."
 
     pc.consume_torch()
-    door.state = DoorState.DESTRANCADA
+    door.is_locked = False
+    door.is_open = True
 
     target = graph.segments.get(door.target_segment_id)
     if target:
-        graph.set_current(target.id)
-
+        return True, f"🔑 Porta {door_index + 1} destrancada! → {target.type.value} (Nível {target.level})"
     return True, f"🔑 Porta {door_index + 1} destrancada!"
-
-
 @dataclass
 class ExplorationSession:
     """Represents an active exploration session linking a dungeon to a character."""

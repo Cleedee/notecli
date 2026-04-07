@@ -1,145 +1,185 @@
-"""Tests for Door and DoorState entities."""
+"""Tests for Door entity with 3 independent attributes."""
 
 import unittest
 from unittest.mock import patch
 
-from notecli.entities.door import Door, DoorState
-from notecli.entities.dungeon import roll_door
+from notecli.entities.door import Door
+from notecli.entities.dungeon import roll_door, close_opened_doors, enter_room
+from notecli.entities.dungeon import DungeonGraph
 from notecli.entities.segment import Segment, SegmentType, create_doors_for_segment
 
 
-class TestDoorState(unittest.TestCase):
-    """Tests for DoorState enum."""
-
-    def test_has_four_values(self):
-        self.assertEqual(len(DoorState), 4)
-
-    def test_door_state_values(self):
-        expected = {"fechada", "armadilha", "trancada", "destrancada"}
-        actual = {ds.value for ds in DoorState}
-        self.assertEqual(actual, expected)
-
-
 class TestDoor(unittest.TestCase):
-    """Tests for Door entity."""
+    """Tests for the new Door entity."""
 
-    def test_door_creation(self):
-        door = Door(index=0, state=DoorState.FECHADA, target_segment_id=1)
-        self.assertEqual(door.index, 0)
-        self.assertEqual(door.state, DoorState.FECHADA)
+    def test_door_creation_closed(self):
+        """New doors should be closed, unlocked, no trap."""
+        door = Door(index=0, is_open=False, is_locked=False, has_trap=False, target_segment_id=1)
+        self.assertFalse(door.is_open)
+        self.assertFalse(door.is_locked)
+        self.assertFalse(door.has_trap)
         self.assertEqual(door.target_segment_id, 1)
-        self.assertIsNone(door.trap_result)
 
-    def test_is_opened(self):
-        door = Door(index=0, state=DoorState.FECHADA, target_segment_id=1)
-        self.assertFalse(door.is_opened())
-        door.state = DoorState.DESTRANCADA
-        self.assertTrue(door.is_opened())
+    def test_door_display_closed(self):
+        self.assertEqual(Door(0).display_status(), "🔒 Fechada")
 
-    def test_is_locked(self):
-        door = Door(index=0, state=DoorState.TRANCADA, target_segment_id=1)
-        self.assertTrue(door.is_locked())
-        door.state = DoorState.DESTRANCADA
-        self.assertFalse(door.is_locked())
+    def test_door_display_open(self):
+        door = Door(0, is_open=True)
+        self.assertEqual(door.display_status(), "✅ Aberta")
 
-    def test_to_dict(self):
-        door = Door(index=0, state=DoorState.FECHADA, target_segment_id=5)
+    def test_door_display_locked(self):
+        door = Door(0, is_locked=True)
+        self.assertIn("Trancada", door.display_status())
+
+    def test_door_display_trap(self):
+        door = Door(0, has_trap=True)
+        self.assertIn("Armadilha", door.display_status())
+
+    def test_close_door(self):
+        door = Door(0, is_open=True, target_segment_id=1)
+        door.close()
+        self.assertFalse(door.is_open)
+
+    def test_can_enter(self):
+        door = Door(0, is_open=True, target_segment_id=1)
+        self.assertTrue(door.can_enter())
+
+    def test_cannot_enter_locked(self):
+        door = Door(0, is_open=True, is_locked=True, target_segment_id=1)
+        self.assertFalse(door.can_enter())
+
+    def test_cannot_enter_trap(self):
+        door = Door(0, is_open=True, has_trap=True, target_segment_id=1)
+        self.assertFalse(door.can_enter())
+
+    def test_is_revealed(self):
+        door = Door(0, target_segment_id=1)
+        self.assertTrue(door.is_revealed())
+
+    def test_to_dict_and_from_dict(self):
+        door = Door(index=0, is_open=True, is_locked=False, has_trap=True, target_segment_id=5)
         data = door.to_dict()
-        self.assertEqual(data["index"], 0)
-        self.assertEqual(data["state"], "fechada")
-        self.assertEqual(data["target_segment_id"], 5)
-        self.assertIsNone(data["trap_result"])
+        restored = Door.from_dict(data)
+        self.assertEqual(restored.index, 0)
+        self.assertTrue(restored.is_open)
+        self.assertFalse(restored.is_locked)
+        self.assertTrue(restored.has_trap)
+        self.assertEqual(restored.target_segment_id, 5)
 
-    def test_from_dict(self):
-        data = {
-            "index": 2,
-            "state": "trancada",
-            "target_segment_id": 10,
-            "trap_result": "spike trap",
-        }
+    def test_from_dict_migration_old_state(self):
+        """Test backward compatibility with old state string format."""
+        data = {"index": 0, "state": "destrancada", "target_segment_id": 1}
         door = Door.from_dict(data)
-        self.assertEqual(door.index, 2)
-        self.assertEqual(door.state, DoorState.TRANCADA)
-        self.assertEqual(door.target_segment_id, 10)
-        self.assertEqual(door.trap_result, "spike trap")
+        self.assertTrue(door.is_open)
+
+        data = {"index": 0, "state": "trancada", "target_segment_id": 1}
+        door = Door.from_dict(data)
+        self.assertTrue(door.is_locked)
+
+        data = {"index": 0, "state": "armadilha", "target_segment_id": 1}
+        door = Door.from_dict(data)
+        self.assertTrue(door.has_trap)
 
 
 class TestRollDoor(unittest.TestCase):
-    """Tests for roll_door function."""
+    """Tests for the roll_door function."""
 
     @patch("notecli.entities.dungeon.random.randint")
-    def test_roll_1_returns_armadilha(self, mock_rand):
+    def test_roll_1_armadilha(self, mock_rand):
         mock_rand.return_value = 1
-        self.assertEqual(roll_door(), DoorState.ARMADILHA)
+        name, msg = roll_door()
+        self.assertEqual(name, "armadilha")
 
     @patch("notecli.entities.dungeon.random.randint")
-    def test_roll_2_returns_trancada(self, mock_rand):
+    def test_roll_2_trancada(self, mock_rand):
         mock_rand.return_value = 2
-        self.assertEqual(roll_door(), DoorState.TRANCADA)
+        name, msg = roll_door()
+        self.assertEqual(name, "trancada")
 
     @patch("notecli.entities.dungeon.random.randint")
-    def test_roll_3_returns_trancada(self, mock_rand):
+    def test_roll_3_trancada(self, mock_rand):
         mock_rand.return_value = 3
-        self.assertEqual(roll_door(), DoorState.TRANCADA)
+        name, msg = roll_door()
+        self.assertEqual(name, "trancada")
 
     @patch("notecli.entities.dungeon.random.randint")
-    def test_roll_4_returns_destrancada(self, mock_rand):
+    def test_roll_4_destrancada(self, mock_rand):
         mock_rand.return_value = 4
-        self.assertEqual(roll_door(), DoorState.DESTRANCADA)
+        name, msg = roll_door()
+        self.assertEqual(name, "destrancada")
 
     @patch("notecli.entities.dungeon.random.randint")
-    def test_roll_5_returns_destrancada(self, mock_rand):
-        mock_rand.return_value = 5
-        self.assertEqual(roll_door(), DoorState.DESTRANCADA)
-
-    @patch("notecli.entities.dungeon.random.randint")
-    def test_roll_6_returns_destrancada(self, mock_rand):
+    def test_roll_6_destrancada(self, mock_rand):
         mock_rand.return_value = 6
-        self.assertEqual(roll_door(), DoorState.DESTRANCADA)
+        name, msg = roll_door()
+        self.assertEqual(name, "destrancada")
 
 
-class TestSegmentWithDoors(unittest.TestCase):
-    """Tests for Segment with doors list."""
+class TestCloseOpenedDoors(unittest.TestCase):
+    """Tests for close_opened_doors function."""
 
-    def test_create_doors_for_segment(self):
-        seg = Segment(id=0, type=SegmentType.CORREDOR, level=1)
-        create_doors_for_segment(seg, [1, 2])
-        self.assertEqual(len(seg.doors), 2)
-        self.assertEqual(seg.doors[0].target_segment_id, 1)
-        self.assertEqual(seg.doors[0].state, DoorState.FECHADA)
-        self.assertEqual(seg.doors_count, 2)
-
-    def test_remaining_doors_count(self):
-        seg = Segment(id=0, type=SegmentType.CORREDOR, level=1)
-        create_doors_for_segment(seg, [1, 2])
-        self.assertEqual(seg.remaining_doors_count(), 2)
-        seg.doors[0].state = DoorState.DESTRANCADA
-        self.assertEqual(seg.remaining_doors_count(), 1)
-
-    def test_locked_doors_count(self):
+    def test_close_opened_doors(self):
         seg = Segment(id=0, type=SegmentType.CORREDOR, level=1)
         create_doors_for_segment(seg, [1, 2, 3])
-        seg.doors[0].state = DoorState.TRANCADA
-        seg.doors[1].state = DoorState.TRANCADA
-        self.assertEqual(seg.locked_doors_count(), 2)
+        seg.doors[0].is_open = True
+        seg.doors[1].is_open = True
 
-    def test_get_door(self):
+        count = close_opened_doors(seg)
+        self.assertEqual(count, 2)
+        self.assertFalse(seg.doors[0].is_open)
+        self.assertFalse(seg.doors[1].is_open)
+        self.assertFalse(seg.doors[2].is_open)  # Was already closed
+
+    def test_close_preserves_lock_and_trap(self):
         seg = Segment(id=0, type=SegmentType.CORREDOR, level=1)
         create_doors_for_segment(seg, [1])
-        self.assertIsNotNone(seg.get_door(0))
-        self.assertIsNone(seg.get_door(5))
+        seg.doors[0].is_open = True
+        seg.doors[0].is_locked = True
+        seg.doors[0].has_trap = True
 
-    def test_to_dict_and_from_dict(self):
-        seg = Segment(id=0, type=SegmentType.CORREDOR, level=1)
-        create_doors_for_segment(seg, [1, 2])
-        seg.doors[0].state = DoorState.TRANCADA
+        close_opened_doors(seg)
+        self.assertFalse(seg.doors[0].is_open)
+        self.assertTrue(seg.doors[0].is_locked)
+        self.assertTrue(seg.doors[0].has_trap)
 
-        data = seg.to_dict()
-        restored = Segment.from_dict(data)
 
-        self.assertEqual(restored.id, 0)
-        self.assertEqual(len(restored.doors), 2)
-        self.assertEqual(restored.doors[0].state, DoorState.TRANCADA)
+class TestEnterRoom(unittest.TestCase):
+    """Tests for enter_room function."""
+
+    def _make_graph_with_door_open(self):
+        graph = DungeonGraph()
+        s1 = graph.create_segment(SegmentType.ESCADARIA, 1, [1])
+        s2 = graph.create_segment(SegmentType.CORREDOR, 1, [])
+        s1.doors[0].target_segment_id = s2.id
+        s1.doors[0].is_open = True
+        graph.set_current(s1.id)
+        return graph
+
+    def test_enter_moves_player(self):
+        graph = self._make_graph_with_door_open()
+        self.assertEqual(graph.current_segment_id, 0)
+
+        success, msg = enter_room(graph, 0, "Templo")
+        self.assertTrue(success)
+        self.assertEqual(graph.current_segment_id, 1)
+
+    def test_enter_closes_door(self):
+        graph = self._make_graph_with_door_open()
+        enter_room(graph, 0, "Templo")
+        self.assertFalse(graph.segments[0].doors[0].is_open)
+
+    def test_enter_closes_other_open_doors(self):
+        graph = DungeonGraph()
+        s1 = graph.create_segment(SegmentType.CORREDOR, 1, [1, 2])
+        s2 = graph.create_segment(SegmentType.SALA, 1, [])
+        s1.doors[0].target_segment_id = s2.id
+        s1.doors[0].is_open = True
+        s1.doors[1].is_open = True  # Another open door
+        graph.set_current(s1.id)
+
+        enter_room(graph, 0, "Templo")
+        self.assertFalse(s1.doors[0].is_open)
+        self.assertFalse(s1.doors[1].is_open)
 
 
 if __name__ == "__main__":

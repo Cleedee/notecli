@@ -7,7 +7,7 @@ import sys
 
 from notecli.entities.dungeon import DungeonGraph, DungeonType, Dungeon, ExplorationSession
 from notecli.entities.segment import SegmentType, create_doors_for_segment
-from notecli.entities.door import DoorState
+
 from notecli.entities.player import PlayerCharacter
 
 
@@ -105,7 +105,7 @@ class TestSaveQuit(unittest.TestCase):
         """T003: Resume must restore exact segment + doors + torches."""
         session = self._make_session(active=True)
         # Set a door state
-        session.segment_graph.segments[1].doors[0].state = DoorState.TRANCADA
+        session.segment_graph.segments[1].doors[0].is_locked = True
         mock_load.return_value = session.to_dict()
 
         # Simulate resume path
@@ -116,7 +116,7 @@ class TestSaveQuit(unittest.TestCase):
         self.assertEqual(len(graph.segments), 2)
         # Door state preserved
         door = graph.segments[1].get_door(0)
-        self.assertEqual(door.state, DoorState.TRANCADA)
+        self.assertEqual(door.is_locked, True)
 
     @patch("notecli.cli.explore_menu.load_exploration")
     @patch("notecli.cli.explore_menu._deactivate_session")

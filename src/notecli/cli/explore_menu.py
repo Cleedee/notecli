@@ -16,7 +16,7 @@ from notecli.entities.dungeon import (
     unlock_door,
 )
 from notecli.entities.segment import SegmentType
-from notecli.entities.door import DoorState
+
 from notecli.cli.storage import (
     load_characters,
     save_exploration,
@@ -40,10 +40,6 @@ _SEGMENT_NAMES = {
 }
 
 _DOOR_STATE_ICONS = {
-    DoorState.FECHADA: "🔒",
-    DoorState.ARMADILHA: "⚠️",
-    DoorState.TRANCADA: "🔐",
-    DoorState.DESTRANCADA: "✅",
 }
 
 
@@ -303,7 +299,7 @@ def exploration_loop(pc, dungeon, graph: DungeonGraph) -> None:
 
 def _handle_open_door(pc, graph: DungeonGraph, door_idx: int, dungeon_type_name: str) -> None:
     """Handle opening a door with roll."""
-    from notecli.entities.door import DoorState
+    
 
     current = graph.current_segment()
     door = current.get_door(door_idx)
@@ -323,9 +319,9 @@ def _handle_open_door(pc, graph: DungeonGraph, door_idx: int, dungeon_type_name:
 
     print(f"🎲 Rolagem: {msg}")
 
-    if state == DoorState.ARMADILHA:
+    if state == "trap":
         print(f"   ⚠️ Armadilha acionada! (placeholder)")
-    elif state == DoorState.TRANCADA:
+    elif state == "trancada":
         print(f"   🔒 A porta está trancada. Use 'destrancar {door_idx + 1}' para abrir.")
     else:
         target = graph.current_segment()

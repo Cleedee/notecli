@@ -89,7 +89,7 @@ class TestTorchConsumptionOnExplore(unittest.TestCase):
         )
         dungeon = Dungeon(type=dungeon_type, name="O Templo da Dor")
         graph = DungeonGraph()
-        graph.create_segment(SegmentType.ESCADARIA, 1, 1)
+        graph.create_segment(SegmentType.ESCADARIA, 1, [1])
 
         session = ExplorationSession(
             dungeon=dungeon,

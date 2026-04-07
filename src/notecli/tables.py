@@ -118,19 +118,19 @@ third_part = ["Secreta", "Nebulosa", "Eterno", "Gélido", "Flamejante", "Sangren
 STAIRCASE_TRANSITIONS = [
     {"type": "corredor", "doors": 1},
     {"type": "corredor", "doors": 2},
-    {"type": "corredor", "doors": 3},
-    {"type": "corredor", "doors": 1},
     {"type": "corredor", "doors": 2},
+    {"type": "corredor", "doors": 2},
+    {"type": "corredor", "doors": 3},
     {"type": "corredor", "doors": 3},
 ]
 
 # From corridor: mostly rooms (1-2 doors), one result leads to staircase
 CORRIDOR_TRANSITIONS = [
     {"type": "sala", "doors": 1},
-    {"type": "sala", "doors": 2},
+    {"type": "sala", "doors": 1},
     {"type": "sala", "doors": 1},
     {"type": "sala", "doors": 2},
-    {"type": "sala", "doors": 1},
+    {"type": "sala", "doors": 2},
     {"type": "escadaria", "doors": 1},
 ]
 

@@ -55,7 +55,7 @@ class Segment:
 
     def locked_doors_count(self) -> int:
         """Return number of doors that are locked."""
-        return sum(1 for d in self.doors if d.is_locked())
+        return sum(1 for d in self.doors if d.is_locked)
 
     def to_dict(self) -> dict:
         """Serialize to a JSON-compatible dictionary."""

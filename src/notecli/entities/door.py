@@ -5,6 +5,16 @@ from enum import Enum
 from typing import Optional
 
 
+class DoorState(Enum):
+    """Possible states of a door."""
+
+    FECHADA = "fechada"
+    ABERTA = "aberta"
+    TRANCADA = "trancada"
+    ARMADILHA = "armadilha"
+    TRANCADA_ARMADILHA = "trancada_armadilha"
+
+
 @dataclass
 class Door:
     """Represents a door between dungeon segments.
@@ -16,6 +26,7 @@ class Door:
         has_trap: Whether the door has an active trap.
         target_segment_id: ID of the target segment (set on first reveal).
     """
+
     index: int
     is_open: bool = field(default=False)
     is_locked: bool = field(default=False)
@@ -29,6 +40,19 @@ class Door:
     def is_revealed(self) -> bool:
         """Check if the door's destination has been revealed."""
         return self.target_segment_id is not None
+
+    @property
+    def state(self) -> DoorState:
+        """Return the current state of the door."""
+        if self.is_open:
+            return DoorState.ABERTA
+        if self.is_locked and self.has_trap:
+            return DoorState.TRANCADA_ARMADILHA
+        if self.is_locked:
+            return DoorState.TRANCADA
+        if self.has_trap:
+            return DoorState.ARMADILHA
+        return DoorState.FECHADA
 
     def can_enter(self) -> bool:
         """Check if player can enter through this door."""

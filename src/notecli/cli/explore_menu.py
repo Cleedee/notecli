@@ -16,6 +16,7 @@ from notecli.entities.dungeon import (
     unlock_door,
 )
 from notecli.entities.segment import SegmentType
+from notecli.entities.door import DoorState
 
 from notecli.cli.storage import (
     load_characters,
@@ -40,6 +41,11 @@ _SEGMENT_NAMES = {
 }
 
 _DOOR_STATE_ICONS = {
+    DoorState.FECHADA: "🔒",
+    DoorState.ABERTA: "🚪",
+    DoorState.TRANCADA: "🔐",
+    DoorState.ARMADILHA: "⚠️",
+    DoorState.TRANCADA_ARMADILHA: "🔐⚠️",
 }
 
 
@@ -119,7 +125,7 @@ def select_or_create_character():
 
         try:
             choice = _prompt("> ").strip().lower()
-        except (KeyboardInterrupt, EOFError):
+        except KeyboardInterrupt, EOFError:
             print()
             return None
 
@@ -157,7 +163,9 @@ def _create_character():
         return None
 
 
-def start_new_session(dungeon, character_index: int, graph: DungeonGraph) -> ExplorationSession:
+def start_new_session(
+    dungeon, character_index: int, graph: DungeonGraph
+) -> ExplorationSession:
     """Start a new exploration session with segment graph."""
     session = ExplorationSession(
         dungeon=dungeon,
@@ -179,9 +187,7 @@ def show_character_status(pc) -> None:
     else:
         magic_info = " | Magias: 0"
 
-    print(
-        f"\n🗡️ {pc.ancestry} {pc.occupation} começa a exploração..."
-    )
+    print(f"\n🗡️ {pc.ancestry} {pc.occupation} começa a exploração...")
     print(
         f"   Tochas: {pc.torches}{magic_info} | HP: {pc.hp_current}/{pc.health_points}"
     )
@@ -216,7 +222,7 @@ def exploration_loop(pc, dungeon, graph: DungeonGraph) -> None:
 
         try:
             cmd = _prompt(action_prompt).strip().lower()
-        except (KeyboardInterrupt, EOFError):
+        except KeyboardInterrupt, EOFError:
             print()
             break
 
@@ -294,12 +300,16 @@ def exploration_loop(pc, dungeon, graph: DungeonGraph) -> None:
             _handle_unlock_door(pc, graph, door_idx)
             continue
 
-        print("⚠️ Comando desconhecido. Digite 'ajuda' para ver as opções.", file=sys.stderr)
+        print(
+            "⚠️ Comando desconhecido. Digite 'ajuda' para ver as opções.",
+            file=sys.stderr,
+        )
 
 
-def _handle_open_door(pc, graph: DungeonGraph, door_idx: int, dungeon_type_name: str) -> None:
+def _handle_open_door(
+    pc, graph: DungeonGraph, door_idx: int, dungeon_type_name: str
+) -> None:
     """Handle opening a door with roll."""
-    
 
     current = graph.current_segment()
     door = current.get_door(door_idx)
@@ -309,7 +319,9 @@ def _handle_open_door(pc, graph: DungeonGraph, door_idx: int, dungeon_type_name:
         target = graph.segments.get(door.target_segment_id)
         if target:
             t_name = _SEGMENT_NAMES.get(target.type, target.type.value)
-            print(f"\n🚪 Porta {door_idx + 1} já foi aberta ({door.state.value}). Ela leva a: {t_name} (Nível {target.level})")
+            print(
+                f"\n🚪 Porta {door_idx + 1} já foi aberta ({door.state.value}). Ela leva a: {t_name} (Nível {target.level})"
+            )
             graph.set_current(target.id)
             display_segment(target, graph)
         return
@@ -322,7 +334,9 @@ def _handle_open_door(pc, graph: DungeonGraph, door_idx: int, dungeon_type_name:
     if state == "trap":
         print(f"   ⚠️ Armadilha acionada! (placeholder)")
     elif state == "trancada":
-        print(f"   🔒 A porta está trancada. Use 'destrancar {door_idx + 1}' para abrir.")
+        print(
+            f"   🔒 A porta está trancada. Use 'destrancar {door_idx + 1}' para abrir."
+        )
     else:
         target = graph.current_segment()
         if target:
@@ -373,8 +387,10 @@ def _handle_exit(pc, graph: DungeonGraph) -> None:
         print("\n⚠️ Há monstros no caminho até a entrada! Cuidado ao sair.")
     else:
         try:
-            choice = _prompt("\n⚠️ Caminho livre. Sair da masmorra? (s/n) > ").strip().lower()
-        except (KeyboardInterrupt, EOFError):
+            choice = (
+                _prompt("\n⚠️ Caminho livre. Sair da masmorra? (s/n) > ").strip().lower()
+            )
+        except KeyboardInterrupt, EOFError:
             print()
             return
 
@@ -404,6 +420,7 @@ def _save_session(graph: DungeonGraph) -> None:
     if session_data:
         session_data["segment_graph"] = graph.to_dict()
         from notecli.cli.storage import save_exploration as _save
+
         _save({"version": 1, "session": session_data})
 
 
@@ -426,6 +443,7 @@ def _deactivate_session() -> None:
     if session_data:
         session_data["active"] = False
         from notecli.cli.storage import save_exploration as _save
+
         _save({"version": 1, "session": session_data})
 
 
@@ -441,9 +459,12 @@ def explore(resume: bool = False) -> None:
 
             if graph and graph.current_segment():
                 from notecli.entities.player import PlayerCharacter
+
                 characters = load_characters()
                 if 0 < session_data["character_index"] <= len(characters):
-                    pc = PlayerCharacter.from_dict(characters[session_data["character_index"] - 1])
+                    pc = PlayerCharacter.from_dict(
+                        characters[session_data["character_index"] - 1]
+                    )
                     print("\n🔄 Sessão de exploração encontrada:")
                     current = graph.current_segment()
                     t_name = _SEGMENT_NAMES.get(current.type, current.type.value)
@@ -451,16 +472,20 @@ def explore(resume: bool = False) -> None:
                     print(f"   Salas visitadas: {len(graph.segments)}")
 
                     try:
-                        choice = _prompt("Continuar desta sessão? (s/n) > ").strip().lower()
-                    except (KeyboardInterrupt, EOFError):
+                        choice = (
+                            _prompt("Continuar desta sessão? (s/n) > ").strip().lower()
+                        )
+                    except KeyboardInterrupt, EOFError:
                         print()
                         return
 
                     if choice == "s":
                         from notecli.entities.dungeon import Dungeon
+
                         dungeon_data = session_data.get("dungeon", {})
                         dungeon_type = None
                         from notecli import tables
+
                         for dt in tables.DUNGEON_TYPES.values():
                             if dt.name == dungeon_data.get("type_name"):
                                 dungeon_type = dt
@@ -469,7 +494,9 @@ def explore(resume: bool = False) -> None:
                             type=dungeon_type,
                             name=dungeon_data.get("name", "Masmorra desconhecida"),
                         )
-                        print(f"\n🗡️ {pc.ancestry} {pc.occupation} continua explorando...")
+                        print(
+                            f"\n🗡️ {pc.ancestry} {pc.occupation} continua explorando..."
+                        )
                         exploration_loop(pc, dungeon, graph)
                         return
                 else:
@@ -486,8 +513,12 @@ def explore(resume: bool = False) -> None:
         session_data = load_exploration()
         if session_data and session_data.get("active"):
             try:
-                choice = _prompt("\n🔄 Sessão ativa encontrada. Retomar? (r/n) > ").strip().lower()
-            except (KeyboardInterrupt, EOFError):
+                choice = (
+                    _prompt("\n🔄 Sessão ativa encontrada. Retomar? (r/n) > ")
+                    .strip()
+                    .lower()
+                )
+            except KeyboardInterrupt, EOFError:
                 print()
                 return
 
@@ -499,13 +530,17 @@ def explore(resume: bool = False) -> None:
                 if graph and graph.current_segment():
                     from notecli.entities.player import PlayerCharacter
                     from notecli.entities.dungeon import Dungeon
+
                     characters = load_characters()
                     if 0 < session_data["character_index"] <= len(characters):
-                        pc = PlayerCharacter.from_dict(characters[session_data["character_index"] - 1])
+                        pc = PlayerCharacter.from_dict(
+                            characters[session_data["character_index"] - 1]
+                        )
                         # Reconstruct dungeon from session data
                         dungeon_data = session_data.get("dungeon", {})
                         dungeon_type = None
                         from notecli import tables
+
                         for dt in tables.DUNGEON_TYPES.values():
                             if dt.name == dungeon_data.get("type_name"):
                                 dungeon_type = dt
@@ -514,7 +549,9 @@ def explore(resume: bool = False) -> None:
                             type=dungeon_type,
                             name=dungeon_data.get("name", "Masmorra desconhecida"),
                         )
-                        print(f"\n🗡️ {pc.ancestry} {pc.occupation} continua explorando...")
+                        print(
+                            f"\n🗡️ {pc.ancestry} {pc.occupation} continua explorando..."
+                        )
                         exploration_loop(pc, dungeon, graph)
                         return
 
